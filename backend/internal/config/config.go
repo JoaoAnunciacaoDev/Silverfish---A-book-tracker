@@ -17,7 +17,7 @@ type Config struct {
 }
 
 // Load lê o arquivo .env e retorna um ponteiro para a struct Config preenchida com as variáveis de ambiente.
-func load() *Config {
+func Load() *Config {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Aviso: arquivo .env não encontrado, lendo variáveis do sistema.")
 	}

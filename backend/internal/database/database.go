@@ -3,7 +3,7 @@ package database
 import (
 	"fmt"
 
-	"github.com/silverfish---a-book-tracker/backend/internal/config"
+	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
