@@ -1,11 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 import {
-  listBooks,
   searchExternalBooks,
   importBook,
 } from '@/api/books'
 import type { Book, ExternalBookItem, PaginationMeta } from '@/types/book'
-import { BookCard } from './BookCard'
 import { ExternalBookCard } from './ExternalBookCard'
 import { CreateBookModal } from './CreateBookModal'
 import { AddToLibraryModal } from '@/features/library/AddToLibraryModal'
@@ -27,18 +25,6 @@ export function BookCatalogPage() {
   const [bookToAddToLibrary, setBookToAddToLibrary] = useState<Book | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Estado dos livros locais (quando não há busca ativa)
-  const [localBooks, setLocalBooks] = useState<Book[]>([])
-  const [localPagination, setLocalPagination] = useState<PaginationMeta>({
-    page: 1,
-    limit: 15,
-    total_items: 0,
-    total_pages: 0,
-    has_next: false,
-    has_prev: false,
-  })
-  const [isLocalLoading, setIsLocalLoading] = useState(false)
-
   // Estado dos resultados da busca global
   const [searchResults, setSearchResults] = useState<ExternalBookItem[]>([])
   const [searchPagination, setSearchPagination] = useState<PaginationMeta>({
@@ -57,26 +43,6 @@ export function BookCatalogPage() {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 4000)
   }
-
-  // Carrega livros locais salvos no sistema
-  const fetchLocalBooks = useCallback(async (page: number) => {
-    try {
-      setIsLocalLoading(true)
-      const res = await listBooks({ page, limit: 15 })
-      setLocalBooks(res.books)
-      setLocalPagination(res.pagination)
-    } catch {
-      // Ignora erro inicial
-    } finally {
-      setIsLocalLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!activeQuery) {
-      fetchLocalBooks(localPagination.page)
-    }
-  }, [activeQuery, localPagination.page, fetchLocalBooks])
 
   // Executa busca global paginada
   const executeSearch = async (query: string, page = 1) => {
@@ -139,12 +105,14 @@ export function BookCatalogPage() {
         )
       )
 
-      showToast(`"${res.book.title}" salvo no seu acervo!`)
+      // Abre o modal para escolher a prateleira / status na estante pessoal
+      setBookToAddToLibrary(res.book)
+      showToast(`"${res.book.title}" adicionado! Escolha a categoria na sua estante.`)
     } catch (err: unknown) {
       if (err instanceof Error) {
         alert(err.message)
       } else {
-        alert('Falha ao salvar livro')
+        alert('Falha ao adicionar livro')
       }
     } finally {
       setImportingKey(null)
@@ -152,8 +120,7 @@ export function BookCatalogPage() {
   }
 
   const handleBookCreated = (newBook: Book) => {
-    showToast(`"${newBook.title}" cadastrado com sucesso!`)
-    fetchLocalBooks(1)
+    showToast(`"${newBook.title}" cadastrado e adicionado à sua estante!`)
     if (activeQuery) {
       handleClearSearch()
     }
@@ -174,10 +141,10 @@ export function BookCatalogPage() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
             <Compass className="w-6 h-6 text-emerald-400" />
-            Explorar Livros
+            Buscar & Descobrir Livros
           </h1>
           <p className="text-slate-400 text-sm">
-            Encontre obras por título ou autor para adicionar às suas leituras.
+            Encontre obras na internet ou cadastre manualmente para adicionar à sua estante.
           </p>
         </div>
 
@@ -186,7 +153,7 @@ export function BookCatalogPage() {
           className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition cursor-pointer shadow-sm hover:shadow-emerald-950/20 shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Cadastrar Livro</span>
+          <span>Cadastrar Novo Livro</span>
         </button>
       </div>
 
@@ -237,7 +204,7 @@ export function BookCatalogPage() {
               onClick={handleClearSearch}
               className="text-xs text-emerald-400 hover:underline cursor-pointer"
             >
-              Voltar ao acervo
+              Ver livros cadastrados
             </button>
           </div>
 
@@ -329,78 +296,46 @@ export function BookCatalogPage() {
           )}
         </div>
       ) : (
-        /* Estado Padrão (Sem Busca Ativa): Mostra os livros do acervo */
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-300">
-              Livros no Acervo do Silverfish ({localPagination.total_items})
-            </h2>
+        /* Estado Padrão (Sem Busca Ativa): Tela limpa de boas-vindas à pesquisa */
+        <div className="py-12 sm:py-16 text-center border border-dashed border-slate-800 rounded-3xl p-6 sm:p-10 space-y-5 bg-slate-900/30">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+            <Search className="w-7 h-7" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-bold text-white">Pesquise Qualquer Livro</h3>
+            <p className="text-sm text-slate-400 max-w-md mx-auto">
+              Digite o título, autor ou ISBN acima para pesquisar milhões de obras e adicioná-las diretamente à sua estante.
+            </p>
           </div>
 
-          {isLocalLoading ? (
-            <div className="py-20 flex flex-col items-center justify-center text-slate-400 space-y-3">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-              <p className="text-sm">Carregando acervo...</p>
-            </div>
-          ) : localBooks.length === 0 ? (
-            <div className="py-16 text-center border border-dashed border-slate-800 rounded-3xl p-8 space-y-3">
-              <BookOpen className="w-12 h-12 text-slate-600 mx-auto" />
-              <h3 className="text-base font-semibold text-white">Nenhum livro no acervo ainda</h3>
-              <p className="text-sm text-slate-400 max-w-sm mx-auto">
-                Utilize a barra de pesquisa acima para encontrar livros ou cadastre uma nova obra.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {localBooks.map((book) => (
-                <BookCard
-                  key={book.id}
-                  book={book}
-                  onAddToLibrary={(b) => setBookToAddToLibrary(b)}
-                />
-              ))}
-            </div>
-          )}
+          {/* Sugestões rápidas de pesquisa */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-2 max-w-lg mx-auto">
+            <span className="text-xs text-slate-500 font-medium">Sugestões rápidas:</span>
+            {['Machado de Assis', 'O Hobbit', 'Ficção Científica', 'George Orwell', 'Clarice Lispector'].map((term) => (
+              <button
+                key={term}
+                type="button"
+                onClick={() => {
+                  setSearchQuery(term)
+                  executeSearch(term, 1)
+                }}
+                className="px-3 py-1 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs rounded-full border border-slate-700/50 transition cursor-pointer"
+              >
+                {term}
+              </button>
+            ))}
+          </div>
 
-          {/* Paginação do Acervo */}
-          {localPagination.total_pages > 1 && (
-            <div className="flex items-center justify-between border-t border-slate-800 pt-4">
-              <p className="text-xs text-slate-400">
-                Página <span className="font-semibold text-white">{localPagination.page}</span> de{' '}
-                <span className="font-semibold text-white">{localPagination.total_pages}</span>
-              </p>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  disabled={!localPagination.has_prev || isLocalLoading}
-                  onClick={() =>
-                    setLocalPagination((prev) => ({
-                      ...prev,
-                      page: Math.max(1, prev.page - 1),
-                    }))
-                  }
-                  className="inline-flex items-center space-x-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span>Anterior</span>
-                </button>
-
-                <button
-                  disabled={!localPagination.has_next || isLocalLoading}
-                  onClick={() =>
-                    setLocalPagination((prev) => ({
-                      ...prev,
-                      page: prev.page + 1,
-                    }))
-                  }
-                  className="inline-flex items-center space-x-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                >
-                  <span>Próxima</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="pt-4 border-t border-slate-800/60 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <span className="text-xs text-slate-400">Não encontrou a edição ou livro desejado?</span>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-semibold border border-emerald-500/30 transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Cadastrar Manualmente</span>
+            </button>
+          </div>
         </div>
       )}
 

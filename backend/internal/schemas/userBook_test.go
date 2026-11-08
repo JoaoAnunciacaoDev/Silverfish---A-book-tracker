@@ -29,3 +29,10 @@ func TestIsValidUserBookStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestGoalHistoryTableName(t *testing.T) {
+	gh := schemas.GoalHistory{}
+	if gh.TableName() != "goal_history" {
+		t.Errorf("esperava 'goal_history', obteve '%s'", gh.TableName())
+	}
+}

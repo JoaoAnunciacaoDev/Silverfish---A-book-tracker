@@ -18,6 +18,8 @@ export function CreateBookModal({ isOpen, onClose, onSuccess }: CreateBookModalP
     cover_url: '',
     isbn: '',
     description: '',
+    add_to_shelf: true,
+    shelf_status: 'in_collection',
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -161,6 +163,34 @@ export function CreateBookModal({ isOpen, onClose, onSuccess }: CreateBookModalP
                 placeholder="Breve resumo da obra..."
                 className="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 focus:border-emerald-500 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-hidden transition resize-none"
               />
+            </div>
+
+            <div className="sm:col-span-2 p-3 bg-slate-950/80 border border-slate-800 rounded-2xl space-y-2">
+              <label className="flex items-center space-x-2 text-xs font-semibold text-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.add_to_shelf}
+                  onChange={(e) => setForm({ ...form, add_to_shelf: e.target.checked })}
+                  className="w-4 h-4 text-emerald-600 rounded bg-slate-900 border-slate-700 focus:ring-emerald-500"
+                />
+                <span>Adicionar imediatamente à minha estante</span>
+              </label>
+
+              {form.add_to_shelf && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[11px] text-slate-400">Status inicial:</span>
+                  <select
+                    value={form.shelf_status}
+                    onChange={(e) => setForm({ ...form, shelf_status: e.target.value })}
+                    className="px-2.5 py-1 bg-slate-900 border border-slate-700 text-xs text-white rounded-lg focus:outline-hidden"
+                  >
+                    <option value="in_collection">No Acervo (Possuo mas não lendo agora)</option>
+                    <option value="want_to_read">Quero Ler</option>
+                    <option value="reading">Lendo Agora</option>
+                    <option value="read">Já Lido</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 

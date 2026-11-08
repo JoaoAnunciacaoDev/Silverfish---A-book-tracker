@@ -34,8 +34,8 @@ function MainLayout() {
               </span>
             </div>
 
-            {/* Navegação principal do usuário */}
-            <nav className="flex items-center space-x-1">
+            {/* Navegação desktop */}
+            <nav className="hidden md:flex items-center space-x-1">
               <button
                 onClick={() => setCurrentTab('library')}
                 className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
@@ -69,7 +69,7 @@ function MainLayout() {
                 }`}
               >
                 <Compass className="w-4 h-4" />
-                <span>Explorar Livros</span>
+                <span>Buscar Livros</span>
               </button>
             </nav>
           </div>
@@ -80,7 +80,7 @@ function MainLayout() {
               <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[11px]">
                 {user?.display_name?.charAt(0).toUpperCase() || 'U'}
               </div>
-              <span className="font-medium text-slate-200">{user?.display_name}</span>
+              <span className="font-medium text-slate-200 hidden xs:inline">{user?.display_name}</span>
             </div>
 
             <button
@@ -94,8 +94,8 @@ function MainLayout() {
         </div>
       </header>
 
-      {/* Conteúdo Principal */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
+      {/* Conteúdo Principal com padding inferior para a barra mobile */}
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 pb-24 md:pb-8">
         {currentTab === 'library' ? (
           <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
         ) : currentTab === 'dashboard' ? (
@@ -104,6 +104,45 @@ function MainLayout() {
           <BookCatalogPage />
         )}
       </main>
+
+      {/* Barra de Navegação Inferior para Mobile (estilo App / PWA) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-6 flex items-center justify-around shadow-2xl">
+        <button
+          onClick={() => setCurrentTab('library')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
+            currentTab === 'library'
+              ? 'text-emerald-400 bg-emerald-500/10'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Library className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-semibold">Estante</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('dashboard')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
+            currentTab === 'dashboard'
+              ? 'text-emerald-400 bg-emerald-500/10'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <LineChart className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-semibold">Painel</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentTab('catalog')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
+            currentTab === 'catalog'
+              ? 'text-emerald-400 bg-emerald-500/10'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Compass className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-semibold">Explorar</span>
+        </button>
+      </nav>
     </div>
   )
 }

@@ -52,6 +52,8 @@ export interface CreateBookInput {
   page_count: number
   genre?: string
   isbn?: string
+  add_to_shelf?: boolean
+  shelf_status?: string
 }
 
 export interface ImportBookInput {

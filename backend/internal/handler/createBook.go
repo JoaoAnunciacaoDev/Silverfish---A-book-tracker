@@ -20,6 +20,8 @@ type CreateBookRequest struct {
 	Genre          string `json:"genre"`
 	ISBN           string `json:"isbn"`
 	OpenLibraryKey string `json:"open_library_key"`
+	AddToShelf     *bool  `json:"add_to_shelf"`
+	ShelfStatus    string `json:"shelf_status"`
 }
 
 func (r *CreateBookRequest) Validate() error {
@@ -90,8 +92,28 @@ func CreateBookHandler(c *gin.Context) {
 		return
 	}
 
+	// Por padrão, ao cadastrar um livro, adiciona-o automaticamente à estante do usuário
+	shouldAddToShelf := request.AddToShelf == nil || *request.AddToShelf
+	if shouldAddToShelf {
+		status := schemas.StatusInCollection
+		if request.ShelfStatus != "" && schemas.IsValidUserBookStatus(request.ShelfStatus) {
+			status = request.ShelfStatus
+		}
+		userBook := schemas.UserBook{
+			ID:          uuid.NewString(),
+			UserID:      user.ID,
+			BookID:      book.ID,
+			Status:      status,
+			Favorite:    false,
+			CurrentPage: 0,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+		_ = db.Create(&userBook).Error
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Livro adicionado ao catálogo com sucesso",
+		"message": "Livro cadastrado e adicionado à sua estante com sucesso",
 		"book":    book,
 	})
 }

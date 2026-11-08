@@ -141,116 +141,119 @@ export function DashboardPage() {
       </div>
 
       {/* Grid de Métricas Principais */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {/* Páginas Totais */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-2">
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-1.5 sm:space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold">Páginas Lidas (Total)</span>
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
-              <BookOpen className="w-4 h-4" />
+            <span className="text-[11px] sm:text-xs font-semibold">Páginas Lidas (Total)</span>
+            <div className="p-1.5 sm:p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-white">
+          <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white">
             {stats.pages.total.toLocaleString('pt-BR')}
           </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[10px] sm:text-[11px] text-slate-400">
             <span className="text-emerald-400 font-semibold">{stats.pages.this_year}</span> neste ano
           </p>
         </div>
 
         {/* Livros Concluídos */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-2">
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-1.5 sm:space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold">Livros Concluídos</span>
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
-              <CheckCircle2 className="w-4 h-4" />
+            <span className="text-[11px] sm:text-xs font-semibold">Livros Concluídos</span>
+            <div className="p-1.5 sm:p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
+              <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-white">
+          <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white">
             {stats.books.read}
           </div>
-          <p className="text-[11px] text-slate-400">
-            {stats.books.reading} lendo agora • {stats.books.in_collection} no acervo
+          <p className="text-[10px] sm:text-[11px] text-slate-400">
+            {stats.books.reading} lendo • {stats.books.in_collection} na coleção
           </p>
         </div>
 
         {/* Ofensiva / Sequência */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-2">
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-1.5 sm:space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold">Ofensiva Atual</span>
-            <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl">
-              <Flame className="w-4 h-4 fill-amber-400 text-amber-400" />
+            <span className="text-[11px] sm:text-xs font-semibold">Ofensiva Atual</span>
+            <div className="p-1.5 sm:p-2 bg-amber-500/10 text-amber-400 rounded-xl">
+              <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-400 text-amber-400" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-amber-400">
-            {stats.streaks.current} <span className="text-sm font-semibold text-slate-400">dias</span>
+          <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-amber-400">
+            {stats.streaks.current} <span className="text-xs sm:text-sm font-semibold text-slate-400">dias</span>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Recorde pessoal: <span className="text-amber-400 font-semibold">{stats.streaks.best} dias</span>
+          <p className="text-[10px] sm:text-[11px] text-slate-400">
+            Recorde: <span className="text-amber-400 font-semibold">{stats.streaks.best} dias</span>
           </p>
         </div>
 
         {/* Média Diária & Consistência */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 space-y-2">
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-1.5 sm:space-y-2">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold">Média por Dia Ativo</span>
-            <div className="p-2 bg-sky-500/10 text-sky-400 rounded-xl">
-              <TrendingUp className="w-4 h-4" />
+            <span className="text-[11px] sm:text-xs font-semibold">Média por Dia Ativo</span>
+            <div className="p-1.5 sm:p-2 bg-sky-500/10 text-sky-400 rounded-xl">
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-white">
+          <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white">
             {stats.pages.daily_average > 0 ? stats.pages.daily_average.toFixed(1) : 0}
           </div>
-          <p className="text-[11px] text-slate-400">
-            <span className="text-sky-400 font-semibold">{stats.pages.active_days}</span> dias com leitura registrada
+          <p className="text-[10px] sm:text-[11px] text-slate-400">
+            <span className="text-sky-400 font-semibold">{stats.pages.active_days}</span> dias ativos
           </p>
         </div>
       </div>
 
       {/* Cards Secundários */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex items-center space-x-3">
-          <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl">
-            <Calendar className="w-5 h-5" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex items-center space-x-3">
+          <div className="p-2 sm:p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
             <span className="text-xs text-slate-400 font-medium">Este Mês</span>
-            <p className="text-lg font-bold text-white">{stats.pages.this_month} páginas</p>
+            <p className="text-base sm:text-lg font-bold text-white">{stats.pages.this_month} páginas</p>
           </div>
         </div>
 
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex items-center space-x-3">
-          <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl">
-            <Zap className="w-5 h-5" />
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex items-center space-x-3">
+          <div className="p-2 sm:p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl">
+            <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
             <span className="text-xs text-slate-400 font-medium">Últimos 7 Dias</span>
-            <p className="text-lg font-bold text-white">{stats.pages.last_7_days} páginas</p>
+            <p className="text-base sm:text-lg font-bold text-white">{stats.pages.last_7_days} páginas</p>
           </div>
         </div>
 
-        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex items-center space-x-3">
-          <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl">
-            <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3.5 sm:p-4 flex items-center space-x-3">
+          <div className="p-2 sm:p-2.5 bg-amber-500/10 text-amber-400 rounded-xl">
+            <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-amber-400 text-amber-400" />
           </div>
           <div>
             <span className="text-xs text-slate-400 font-medium">Avaliações & Resenhas</span>
-            <p className="text-lg font-bold text-white">{stats.reviews_count} publicadas</p>
+            <p className="text-base sm:text-lg font-bold text-white">{stats.reviews_count} publicadas</p>
           </div>
         </div>
       </div>
 
       {/* Calendário de Contribuições de Leitura (Estilo GitHub) */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 space-y-4">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
               <Calendar className="w-4 h-4 text-emerald-400" />
               <span>Consistência de Leitura nos Últimos 365 Dias</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               Cada quadrado representa a intensidade de páginas lidas no dia.
             </p>
+            <span className="sm:hidden text-[10px] text-slate-500 mt-1 block">
+              ← Deslize horizontalmente para navegar pelo ano →
+            </span>
           </div>
 
           {/* Legenda */}

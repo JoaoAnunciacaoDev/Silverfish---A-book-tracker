@@ -19,3 +19,7 @@ type GoalHistory struct {
 	Met       bool      `json:"met" gorm:"not null;default:false"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+func (GoalHistory) TableName() string {
+	return "goal_history"
+}

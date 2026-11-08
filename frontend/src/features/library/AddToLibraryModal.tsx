@@ -149,7 +149,7 @@ export function AddToLibraryModal({
                     : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
                 }`}
               >
-                <span>No Acervo</span>
+                <span>Na Coleção</span>
                 {status === 'in_collection' && <Check className="w-3.5 h-3.5" />}
               </button>
             </div>

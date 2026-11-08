@@ -119,6 +119,13 @@ Categorias:
 - Favoritos.
 - Pausados.
 - Abandonados.
+- Coleção (livros que possui no acervo pessoal, sem leitura ativa).
+
+Avaliações e resenhas:
+- Avaliação para livros lidos com notas de 0 a 10 estrelas.
+- Comentários e resenhas limitados a 1.000 caracteres.
+- Registro de datas de criação e edição.
+- Suporte a múltiplas avaliações ao longo do tempo (releituras).
 
 Informações dos livros:
 - Título.
@@ -287,10 +294,10 @@ A organização deverá manter as responsabilidades separadas, sem necessidade d
 
 ### Fase 2 — Acompanhamento e estatísticas
 
-- [ ] Dashboard individual.
-- [ ] Estatísticas por período.
+- [x] Dashboard individual.
+- [x] Estatísticas por período.
 - [ ] Diário de leitura.
-- [ ] Calendário de contribuições.
+- [x] Calendário de contribuições.
 - [ ] Sistema de conquistas.
 - [ ] Histórico de leitura.
 

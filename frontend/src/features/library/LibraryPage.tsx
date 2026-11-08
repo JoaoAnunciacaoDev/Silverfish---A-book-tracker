@@ -261,7 +261,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
             }`}
           >
             <Archive className="w-3.5 h-3.5" />
-            <span>No Acervo ({summary.in_collection})</span>
+            <span>Coleção ({summary.in_collection})</span>
           </button>
 
           <button
@@ -315,7 +315,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
             <p className="text-sm text-slate-400 max-w-sm mx-auto">
               {searchQuery
                 ? `Nenhum livro corresponde a "${searchQuery}".`
-                : 'Explore o acervo de livros e comece a adicionar suas leituras.'}
+                : 'Sua estante ainda não possui livros nesta categoria. Busque ou cadastre novas obras para começar!'}
             </p>
           </div>
           <button
@@ -323,7 +323,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
             className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
           >
             <Compass className="w-4 h-4" />
-            <span>Explorar Acervo de Livros</span>
+            <span>Buscar Livros para a Estante</span>
           </button>
         </div>
       ) : (

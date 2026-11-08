@@ -63,7 +63,7 @@ const statusConfig: Record<
     icon: XCircle,
   },
   in_collection: {
-    label: 'No Acervo',
+    label: 'Coleção',
     bg: 'bg-teal-500/10',
     text: 'text-teal-400',
     border: 'border-teal-500/20',
@@ -272,7 +272,7 @@ export function LibraryBookCard({
                     className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2"
                   >
                     <Archive className="w-3.5 h-3.5 text-teal-400" />
-                    <span>No Acervo</span>
+                    <span>Coleção</span>
                   </button>
                 )}
 

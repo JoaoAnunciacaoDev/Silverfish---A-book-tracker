@@ -5,3 +5,8 @@
   --color-brand-background: var(--color-slate-950);
   --color-streak: var(--color-amber-500);
 }
+
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}

@@ -148,17 +148,17 @@ export function ReviewModal({ item, isOpen, onClose, currentUserId }: ReviewModa
   const currentDisplayRating = hoverRating !== null ? hoverRating : rating
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
-      <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs">
+      <div className="relative w-full max-w-xl max-h-[92vh] sm:max-h-[90vh] flex flex-col bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/20">
-              <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
+            <div className="p-2 sm:p-2.5 bg-amber-500/10 text-amber-400 rounded-xl sm:rounded-2xl border border-amber-500/20">
+              <Star className="w-4 h-4 sm:w-5 sm:h-5 fill-amber-400 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Avaliações do Livro</h3>
-              <p className="text-xs text-slate-400 truncate max-w-sm">{item.book.title}</p>
+              <h3 className="text-sm sm:text-base font-bold text-white">Avaliações do Livro</h3>
+              <p className="text-xs text-slate-400 truncate max-w-[200px] sm:max-w-sm">{item.book.title}</p>
             </div>
           </div>
           <button
@@ -170,7 +170,7 @@ export function ReviewModal({ item, isOpen, onClose, currentUserId }: ReviewModa
         </div>
 
         {/* Content Body scrollable */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 flex-1">
           {error && (
             <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl">
               {error}
@@ -231,7 +231,7 @@ export function ReviewModal({ item, isOpen, onClose, currentUserId }: ReviewModa
               {/* Seletor de Estrelas (0 a 10) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-300">Sua Nota em Estrelas</label>
-                <div className="flex items-center space-x-1 py-1">
+                <div className="flex flex-wrap items-center gap-1 sm:space-x-1 py-1">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                     <button
                       key={num}
@@ -242,7 +242,7 @@ export function ReviewModal({ item, isOpen, onClose, currentUserId }: ReviewModa
                       className="p-1 text-slate-600 hover:scale-125 transition-transform cursor-pointer"
                     >
                       <Star
-                        className={`w-5 h-5 ${
+                        className={`w-4 h-4 sm:w-5 sm:h-5 ${
                           num <= currentDisplayRating
                             ? 'fill-amber-400 text-amber-400'
                             : 'text-slate-700'

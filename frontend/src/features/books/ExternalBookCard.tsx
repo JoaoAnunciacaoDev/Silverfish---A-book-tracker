@@ -1,5 +1,5 @@
 import type { ExternalBookItem } from '@/types/book'
-import { BookOpen, Calendar, Check, Download, Layers, Loader2 } from 'lucide-react'
+import { BookOpen, Calendar, Download, Layers, Loader2 } from 'lucide-react'
 
 interface ExternalBookCardProps {
   item: ExternalBookItem
@@ -53,42 +53,35 @@ export function ExternalBookCard({ item, onImport, isImporting }: ExternalBookCa
         </div>
       </div>
 
-      {/* Ação: Já no Acervo ou Salvar */}
+      {/* Ação: Adicionar à Estante */}
       <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between gap-2">
         {item.isbn ? (
-          <span className="text-[11px] text-slate-500 font-medium">
+          <span className="text-[11px] text-slate-500 font-medium truncate max-w-[120px]">
             ISBN {item.isbn}
           </span>
         ) : (
           <span className="text-[11px] text-slate-500 font-medium">
-            Acervo Global
+            Busca Online
           </span>
         )}
 
-        {item.in_catalog ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium shrink-0">
-            <Check className="w-3.5 h-3.5" />
-            No Acervo
-          </span>
-        ) : (
-          <button
-            onClick={() => onImport(item)}
-            disabled={isImporting}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-medium transition cursor-pointer disabled:cursor-not-allowed shrink-0 shadow-sm"
-          >
-            {isImporting ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Salvando...</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-3.5 h-3.5" />
-                <span>Salvar Livro</span>
-              </>
-            )}
-          </button>
-        )}
+        <button
+          onClick={() => onImport(item)}
+          disabled={isImporting}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed shrink-0 shadow-sm"
+        >
+          {isImporting ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Adicionando...</span>
+            </>
+          ) : (
+            <>
+              <Download className="w-3.5 h-3.5" />
+              <span>Adicionar à Estante</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   )
