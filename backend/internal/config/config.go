@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	Port          string
-	Env           string
-	DBDriver      string
-	DBSource      string
-	SessionSecret string
-	FrontendURL   string
+	Port              string
+	Env               string
+	DBDriver          string
+	DBSource          string
+	SessionSecret     string
+	FrontendURL       string
+	GoogleBooksAPIKey string
 }
 
 // Load lê o arquivo .env e retorna um ponteiro para a struct Config preenchida com as variáveis de ambiente.
@@ -23,12 +24,13 @@ func Load() *Config {
 	}
 
 	cfg := &Config{
-		Port:          getEnv("PORT", "8080"),
-		Env:           getEnv("ENV", "development"),
-		DBDriver:      getEnv("DB_DRIVER", "sqlite"),
-		DBSource:      getEnv("DB_SOURCE", "silverfish.db"),
-		SessionSecret: getEnv("SESSION_SECRET", "silverfish-secret-key-12345"),
-		FrontendURL:   getEnv("FRONTEND_URL", "http://localhost:5173"),
+		Port:              getEnv("PORT", "8080"),
+		Env:               getEnv("ENV", "development"),
+		DBDriver:          getEnv("DB_DRIVER", "sqlite"),
+		DBSource:          getEnv("DB_SOURCE", "silverfish.db"),
+		SessionSecret:     getEnv("SESSION_SECRET", "silverfish-secret-key-12345"),
+		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:5173"),
+		GoogleBooksAPIKey: getEnv("GOOGLE_BOOKS_API_KEY", ""),
 	}
 
 	// Validação estrita para ambiente de produção

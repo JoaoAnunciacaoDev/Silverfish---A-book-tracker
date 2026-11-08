@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,16 +37,32 @@ func (r *ImportBookRequest) Validate() error {
 		return errors.New("título é obrigatório")
 	}
 	if r.OpenLibraryKey == "" {
-		return errors.New("open_library_key é obrigatório para importação")
+		return errors.New("chave do livro é obrigatória para importação")
 	}
 	if r.PageCount <= 0 {
-		r.PageCount = 100 // fallback caso a Open Library não informe páginas
+		r.PageCount = 100 // fallback caso a API não informe páginas
 	}
 	return nil
 }
 
+type ExternalBookItem struct {
+	OpenLibraryKey string `json:"open_library_key"` // Identificador externo único (Google Books ou Open Library)
+	Title          string `json:"title"`
+	Author         string `json:"author"`
+	Description    string `json:"description"`
+	CoverURL       string `json:"cover_url"`
+	PageCount      int    `json:"page_count"`
+	Year           int    `json:"year"`
+	Genre          string `json:"genre"`
+	ISBN           string `json:"isbn"`
+	InCatalog      bool   `json:"in_catalog"`
+	LocalBookID    string `json:"local_book_id,omitempty"`
+}
+
+// Estruturas da Open Library
 type openLibrarySearchResponse struct {
-	Docs []struct {
+	NumFound int `json:"numFound"`
+	Docs     []struct {
 		Key              string   `json:"key"`
 		Title            string   `json:"title"`
 		AuthorName       []string `json:"author_name"`
@@ -54,87 +73,154 @@ type openLibrarySearchResponse struct {
 	} `json:"docs"`
 }
 
-type ExternalBookItem struct {
-	OpenLibraryKey string `json:"open_library_key"`
-	Title          string `json:"title"`
-	Author         string `json:"author"`
-	CoverURL       string `json:"cover_url"`
-	PageCount      int    `json:"page_count"`
-	Year           int    `json:"year"`
-	ISBN           string `json:"isbn"`
-	InCatalog      bool   `json:"in_catalog"`
-	LocalBookID    string `json:"local_book_id,omitempty"`
+// Estruturas do Google Books API
+type googleBooksResponse struct {
+	TotalItems int `json:"totalItems"`
+	Items      []struct {
+		ID         string `json:"id"`
+		VolumeInfo struct {
+			Title               string   `json:"title"`
+			Authors             []string `json:"authors"`
+			Description         string   `json:"description"`
+			PublishedDate       string   `json:"publishedDate"`
+			PageCount           int      `json:"pageCount"`
+			Categories          []string `json:"categories"`
+			IndustryIdentifiers []struct {
+				Type       string `json:"type"`
+				Identifier string `json:"identifier"`
+			} `json:"industryIdentifiers"`
+			ImageLinks struct {
+				SmallThumbnail string `json:"smallThumbnail"`
+				Thumbnail      string `json:"thumbnail"`
+			} `json:"imageLinks"`
+		} `json:"volumeInfo"`
+	} `json:"items"`
 }
 
-// SearchExternalBooksHandler busca obras na Open Library de forma segura e cruza com o catálogo local
-func SearchExternalBooksHandler(c *gin.Context) {
-	q := strings.TrimSpace(c.Query("q"))
-	if q == "" {
-		sendError(c, http.StatusBadRequest, "o parâmetro de busca 'q' é obrigatório")
-		return
+func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey string) ([]ExternalBookItem, int, error) {
+	startIndex := (page - 1) * limit
+	apiURL := fmt.Sprintf(
+		"https://www.googleapis.com/books/v1/volumes?q=%s&startIndex=%d&maxResults=%d",
+		url.QueryEscape(q),
+		startIndex,
+		limit,
+	)
+	if apiKey != "" {
+		apiURL += fmt.Sprintf("&key=%s", url.QueryEscape(apiKey))
 	}
 
-	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&limit=15", url.QueryEscape(q))
-
-	// [P1] Cliente HTTP com timeout de 10s associado ao contexto da requisição
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, apiURL, nil)
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		sendError(c, http.StatusInternalServerError, "erro ao preparar requisição externa")
-		return
+		return nil, 0, err
+	}
+	req.Header.Set("User-Agent", "SilverfishBookTracker/1.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, 0, fmt.Errorf("google books retornou status %d", resp.StatusCode)
+	}
+
+	var gResp googleBooksResponse
+	if err := json.NewDecoder(resp.Body).Decode(&gResp); err != nil {
+		return nil, 0, err
+	}
+
+	results := make([]ExternalBookItem, 0, len(gResp.Items))
+	for _, item := range gResp.Items {
+		info := item.VolumeInfo
+
+		author := "Autor Desconhecido"
+		if len(info.Authors) > 0 {
+			author = strings.Join(info.Authors, ", ")
+		}
+
+		// Capa em HTTPS
+		coverURL := info.ImageLinks.Thumbnail
+		if coverURL == "" {
+			coverURL = info.ImageLinks.SmallThumbnail
+		}
+		if strings.HasPrefix(coverURL, "http://") {
+			coverURL = "https://" + coverURL[7:]
+		}
+
+		// Extrai ISBN (prioriza ISBN_13)
+		isbn := ""
+		for _, idf := range info.IndustryIdentifiers {
+			if idf.Type == "ISBN_13" {
+				isbn = idf.Identifier
+				break
+			}
+			if isbn == "" && idf.Type == "ISBN_10" {
+				isbn = idf.Identifier
+			}
+		}
+
+		// Extrai ano
+		year := 0
+		if len(info.PublishedDate) >= 4 {
+			year, _ = strconv.Atoi(info.PublishedDate[:4])
+		}
+
+		genre := ""
+		if len(info.Categories) > 0 {
+			genre = info.Categories[0]
+		}
+
+		pages := info.PageCount
+		if pages <= 0 {
+			pages = 100
+		}
+
+		results = append(results, ExternalBookItem{
+			OpenLibraryKey: "google:" + item.ID,
+			Title:          info.Title,
+			Author:         author,
+			Description:    info.Description,
+			CoverURL:       coverURL,
+			PageCount:      pages,
+			Year:           year,
+			Genre:          genre,
+			ISBN:           isbn,
+		})
+	}
+
+	return results, gResp.TotalItems, nil
+}
+
+func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]ExternalBookItem, int, error) {
+	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&page=%d&limit=%d", url.QueryEscape(q), page, limit)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, 0, err
 	}
 	req.Header.Set("User-Agent", "SilverfishBookTracker/1.0 (https://github.com/JoaoAnunciacaoDev/Silverfish)")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		sendError(c, http.StatusGatewayTimeout, "tempo limite esgotado ao consultar a Open Library")
-		return
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 
-	// [P1] Tratamento de respostas não-200 da Open Library
 	if resp.StatusCode == http.StatusTooManyRequests {
-		sendError(c, http.StatusTooManyRequests, "limite de requisições excedido na Open Library. Tente novamente em instantes.")
-		return
+		return nil, 0, errors.New("limite de requisições excedido na Open Library")
 	}
 	if resp.StatusCode != http.StatusOK {
-		sendError(c, http.StatusBadGateway, fmt.Sprintf("a Open Library respondeu com erro (código %d)", resp.StatusCode))
-		return
+		return nil, 0, fmt.Errorf("open library retornou status %d", resp.StatusCode)
 	}
 
 	var olResp openLibrarySearchResponse
 	if err := json.NewDecoder(resp.Body).Decode(&olResp); err != nil {
-		sendError(c, http.StatusInternalServerError, "erro ao ler resposta da Open Library")
-		return
+		return nil, 0, err
 	}
 
-	// 1. Coleta todas as chaves retornadas pela Open Library
-	keys := make([]string, 0, len(olResp.Docs))
-	for _, doc := range olResp.Docs {
-		if doc.Key != "" {
-			keys = append(keys, doc.Key)
-		}
-	}
-
-	// [P2] Consulta nosso banco local e NÃO ignora erros!
-	existingMap := make(map[string]string)
-	if len(keys) > 0 {
-		var existingBooks []schemas.Book
-		if err := db.Where("open_library_key IN ?", keys).Find(&existingBooks).Error; err != nil {
-			sendError(c, http.StatusInternalServerError, "falha ao verificar duplicidade no catálogo local")
-			return
-		}
-		for _, b := range existingBooks {
-			if b.OpenLibraryKey != nil {
-				existingMap[*b.OpenLibraryKey] = b.ID
-			}
-		}
-	}
-
-	// 3. Monta os resultados informando se o livro já está no catálogo
 	results := make([]ExternalBookItem, 0, len(olResp.Docs))
 	for _, doc := range olResp.Docs {
 		author := "Autor Desconhecido"
@@ -154,10 +240,8 @@ func SearchExternalBooksHandler(c *gin.Context) {
 
 		pages := doc.NumberOfPages
 		if pages <= 0 {
-			pages = 100 // estimativa padrão caso a edição não tenha número de páginas
+			pages = 100
 		}
-
-		localID, inCatalog := existingMap[doc.Key]
 
 		results = append(results, ExternalBookItem{
 			OpenLibraryKey: doc.Key,
@@ -167,18 +251,140 @@ func SearchExternalBooksHandler(c *gin.Context) {
 			PageCount:      pages,
 			Year:           doc.FirstPublishYear,
 			ISBN:           isbn,
-			InCatalog:      inCatalog,
-			LocalBookID:    localID,
 		})
+	}
+
+	return results, olResp.NumFound, nil
+}
+
+// enrichWithCatalogStatus verifica se os livros encontrados já foram salvos no acervo local (por chave ou ISBN)
+func enrichWithCatalogStatus(items []ExternalBookItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(items))
+	isbns := make([]string, 0, len(items))
+	for _, it := range items {
+		if it.OpenLibraryKey != "" {
+			keys = append(keys, it.OpenLibraryKey)
+		}
+		if it.ISBN != "" {
+			isbns = append(isbns, it.ISBN)
+		}
+	}
+
+	var existingBooks []schemas.Book
+	query := db.Model(&schemas.Book{})
+	if len(keys) > 0 && len(isbns) > 0 {
+		query = query.Where("open_library_key IN ? OR (isbn != '' AND isbn IN ?)", keys, isbns)
+	} else if len(keys) > 0 {
+		query = query.Where("open_library_key IN ?", keys)
+	} else if len(isbns) > 0 {
+		query = query.Where("isbn != '' AND isbn IN ?", isbns)
+	} else {
+		return nil
+	}
+
+	if err := query.Find(&existingBooks).Error; err != nil {
+		return err
+	}
+
+	existingKeyMap := make(map[string]string)
+	existingISBNMap := make(map[string]string)
+	for _, b := range existingBooks {
+		if b.OpenLibraryKey != nil && *b.OpenLibraryKey != "" {
+			existingKeyMap[*b.OpenLibraryKey] = b.ID
+		}
+		if b.ISBN != "" {
+			existingISBNMap[b.ISBN] = b.ID
+		}
+	}
+
+	for i := range items {
+		if localID, ok := existingKeyMap[items[i].OpenLibraryKey]; ok {
+			items[i].InCatalog = true
+			items[i].LocalBookID = localID
+		} else if items[i].ISBN != "" {
+			if localID, ok := existingISBNMap[items[i].ISBN]; ok {
+				items[i].InCatalog = true
+				items[i].LocalBookID = localID
+			}
+		}
+	}
+
+	return nil
+}
+
+// SearchExternalBooksHandler busca no Google Books (acervo brasileiro) com fallback para Open Library
+func SearchExternalBooksHandler(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+	if q == "" {
+		sendError(c, http.StatusBadRequest, "o parâmetro de busca 'q' é obrigatório")
+		return
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "15"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 40 {
+		limit = 15
+	}
+
+	var results []ExternalBookItem
+	var totalItems int
+	var err error
+
+	googleKey := ""
+	if cfg != nil {
+		googleKey = cfg.GoogleBooksAPIKey
+	}
+
+	// 1. Tenta buscar no Google Books (prioridade para catálogo nacional)
+	results, totalItems, err = searchGoogleBooks(c.Request.Context(), q, page, limit, googleKey)
+
+	// 2. Se o Google Books falhar ou não retornar nenhum resultado, faz fallback para a Open Library
+	if err != nil || len(results) == 0 {
+		olResults, olTotal, olErr := searchOpenLibrary(c.Request.Context(), q, page, limit)
+		if olErr == nil && len(olResults) > 0 {
+			results = olResults
+			totalItems = olTotal
+			err = nil
+		}
+	}
+
+	if err != nil && len(results) == 0 {
+		sendError(c, http.StatusBadGateway, "não foi possível consultar os provedores de livros no momento")
+		return
+	}
+
+	// 3. Marca os livros que já estão salvos no acervo local
+	if err := enrichWithCatalogStatus(results); err != nil {
+		sendError(c, http.StatusInternalServerError, "falha ao verificar acervo local")
+		return
+	}
+
+	totalPages := 0
+	if totalItems > 0 {
+		totalPages = int(math.Ceil(float64(totalItems) / float64(limit)))
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"results": results,
-		"count":   len(results),
+		"pagination": PaginationMeta{
+			Page:       page,
+			Limit:      limit,
+			TotalItems: int64(totalItems),
+			TotalPages: totalPages,
+			HasNext:    page < totalPages,
+			HasPrev:    page > 1,
+		},
 	})
 }
 
-// ImportBookHandler importa uma obra da Open Library para o catálogo local
+// ImportBookHandler salva uma obra externa (Google Books ou Open Library) no acervo local
 func ImportBookHandler(c *gin.Context) {
 	userVal, _ := c.Get("currentUser")
 	user := userVal.(*schemas.User)
@@ -194,9 +400,14 @@ func ImportBookHandler(c *gin.Context) {
 		return
 	}
 
-	// Idempotência: Se o livro já foi importado antes por qualquer usuário, retorna o existente sem duplicar!
+	// Idempotência: Se o livro já foi importado por chave externa ou por ISBN, retorna o existente sem duplicar!
 	var existing schemas.Book
-	if err := db.Where("open_library_key = ?", request.OpenLibraryKey).First(&existing).Error; err == nil {
+	query := db.Where("open_library_key = ?", request.OpenLibraryKey)
+	if request.ISBN != "" {
+		query = db.Where("open_library_key = ? OR (isbn != '' AND isbn = ?)", request.OpenLibraryKey, request.ISBN)
+	}
+
+	if err := query.First(&existing).Error; err == nil {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Livro já constava no catálogo",
 			"book":    existing,
@@ -224,9 +435,8 @@ func ImportBookHandler(c *gin.Context) {
 	if err := db.Create(&book).Error; err != nil {
 		errStr := strings.ToLower(err.Error())
 		if strings.Contains(errStr, "unique") || strings.Contains(errStr, "23505") {
-			// Caso de corrida: outro usuário importou no mesmo instante
 			var raced schemas.Book
-			if errFind := db.Where("open_library_key = ?", request.OpenLibraryKey).First(&raced).Error; errFind == nil {
+			if errFind := query.First(&raced).Error; errFind == nil {
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Livro já constava no catálogo",
 					"book":    raced,
@@ -239,7 +449,7 @@ func ImportBookHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Livro importado com sucesso para o catálogo",
+		"message": "Livro adicionado ao acervo com sucesso",
 		"book":    book,
 	})
 }
