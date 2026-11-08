@@ -1,107 +1,111 @@
-import { useEffect, useState } from 'react'
-import { BookOpen, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
+import { AuthPage } from '@/features/auth/AuthPage'
+import { BookOpen, LogOut, Sparkles, User as UserIcon, Clock } from 'lucide-react'
 
-interface HealthResponse {
-  status: string
-  service: string
-  timestamp: string
-  database: string
+function Dashboard() {
+  const { user, logout } = useAuth()
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {/* Navbar Superior */}
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-white">Silverfish</span>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/50 text-xs">
+              <UserIcon className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-medium text-slate-200">{user?.display_name}</span>
+              <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+                {user?.role}
+              </span>
+            </div>
+
+            <button
+              onClick={logout}
+              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition border border-transparent hover:border-rose-500/20 cursor-pointer"
+              title="Sair da conta"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Conteúdo Principal */}
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-6">
+        {/* Banner de Boas-vindas */}
+        <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/20 rounded-3xl p-6 sm:p-8 relative overflow-hidden">
+          <div className="relative z-10 space-y-2">
+            <div className="inline-flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Sessão ativa com Cookies HttpOnly</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white">
+              Olá, {user?.display_name}! 📖
+            </h2>
+            <p className="text-slate-400 text-sm max-w-xl">
+              Você está autenticado com sucesso no Silverfish. Sua conta está associada ao usuário{' '}
+              <strong className="text-slate-200">@{user?.username}</strong> ({user?.email}).
+            </p>
+          </div>
+        </div>
+
+        {/* Card de Informações da Sessão */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+            <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <UserIcon className="w-4 h-4 text-emerald-400" />
+              <span>Identificação</span>
+            </div>
+            <p className="text-sm font-mono text-slate-300 break-all">{user?.id}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+            <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <Clock className="w-4 h-4 text-emerald-400" />
+              <span>Fuso Horário IANA</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-200">{user?.timezone}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+            <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <BookOpen className="w-4 h-4 text-emerald-400" />
+              <span>Próximo Passo</span>
+            </div>
+            <p className="text-sm text-emerald-400 font-medium">Etapa 5: Catálogo de Livros 📚</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+function Main() {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">
+        <p className="animate-pulse text-sm">Carregando sessão...</p>
+      </div>
+    )
+  }
+
+  return isAuthenticated ? <Dashboard /> : <AuthPage />
 }
 
 export function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const checkHealth = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await fetch('/api/health')
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`)
-      
-      const data: HealthResponse = await response.json()
-      setHealth(data)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Falha ao conectar com o backend')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    checkHealth()
-  }, [])
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
-        
-        <div className="flex items-center space-x-3">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-            <BookOpen className="w-8 h-8" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Silverfish</h1>
-            <p className="text-sm text-slate-400">Plataforma de Incentivo à Leitura</p>
-          </div>
-        </div>
-        
-        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Status do Backend
-            </span>
-            <button
-              onClick={checkHealth}
-              disabled={loading}
-              className="text-slate-400 hover:text-white transition disabled:opacity-50"
-              title="Recarregar"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          {loading && (
-            <p className="text-sm text-slate-400">Conectando à API...</p>
-          )}
-
-          {error && (
-            <div className="flex items-start space-x-2 text-rose-400 text-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium">Backend desconectado</p>
-                <p className="text-xs text-rose-400/80 mt-0.5">
-                  Certifique-se de que o backend está rodando na porta 8080.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {health && (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-emerald-400 text-sm font-medium">
-                <CheckCircle className="w-5 h-5" />
-                <span>Backend conectado com sucesso!</span>
-              </div>
-              <div className="text-xs font-mono text-slate-400 space-y-1 bg-slate-900 p-3 rounded-lg border border-slate-800">
-                <p><strong className="text-slate-300">Serviço:</strong> {health.service}</p>
-                <p><strong className="text-slate-300">Banco:</strong> {health.database}</p>
-                <p><strong className="text-slate-300">Horário:</strong> {new Date(health.timestamp).toLocaleTimeString()}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="text-center">
-          <span className="text-xs text-slate-400">
-            Frontend Base pronto
-          </span>
-        </div>
-
-      </div>
-    </div>
+    <AuthProvider>
+      <Main />
+    </AuthProvider>
   )
 }
 

@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+@theme {
+  --color-brand-primary: var(--color-emerald-500);
+  --color-brand-background: var(--color-slate-950);
+  --color-streak: var(--color-amber-500);
+}
