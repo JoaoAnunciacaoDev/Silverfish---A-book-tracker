@@ -2,6 +2,7 @@ package auth
 
 import (
 	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -47,4 +48,9 @@ func (r *Repository) FindSessionByToken(token string) (*Session, error) {
 
 func (r *Repository) DeleteSessionByToken(token string) error {
 	return r.db.Where("token = ?", token).Delete(&Session{}).Error
+}
+
+// DeleteExpiredSessions remove sessões cuja data de expiração já passou
+func (r *Repository) DeleteExpiredSessions() error {
+	return r.db.Where("expires_at < ?", time.Now()).Delete(&Session{}).Error
 }

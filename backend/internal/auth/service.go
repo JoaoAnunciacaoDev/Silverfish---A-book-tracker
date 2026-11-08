@@ -20,6 +20,7 @@ var (
 	ErrSessionExpired     = errors.New("sessão expirada ou inválida")
 	ErrInvalidTimezone    = errors.New("fuso horário inválido")
 	ErrInvalidUsername    = errors.New("nome de usuário deve ter entre 3 e 30 caracteres (apenas letras, números e _)")
+	ErrWeakPassword       = errors.New("a senha deve ter no mínimo 8 caracteres, contendo pelo menos uma letra maiúscula e um número")
 )
 
 type Service struct {
@@ -47,6 +48,22 @@ func isAlphaNumericUnderscore(s string) bool {
 	return true
 }
 
+func isStrongPassword(p string) bool {
+	if len(p) < 8 {
+		return false
+	}
+	var hasUpper, hasNumber bool
+	for _, r := range p {
+		if r >= 'A' && r <= 'Z' {
+			hasUpper = true
+		}
+		if r >= '0' && r <= '9' {
+			hasNumber = true
+		}
+	}
+	return hasUpper && hasNumber
+}
+
 func (s *Service) Register(input RegisterInput) (*User, error) {
 	// 1. Normalização ANTES de qualquer validação ou consulta
 	normalizedEmail := strings.ToLower(strings.TrimSpace(input.Email))
@@ -57,7 +74,12 @@ func (s *Service) Register(input RegisterInput) (*User, error) {
 		return nil, ErrInvalidUsername
 	}
 
-	// 3. Validação rigorosa do fuso horário IANA
+	// 3. Validação de senha forte
+	if !isStrongPassword(input.Password) {
+		return nil, ErrWeakPassword
+	}
+
+	// 4. Validação rigorosa do fuso horário IANA
 	tz := strings.TrimSpace(input.Timezone)
 	if tz == "" {
 		tz = "America/Sao_Paulo"
@@ -66,7 +88,7 @@ func (s *Service) Register(input RegisterInput) (*User, error) {
 		return nil, ErrInvalidTimezone
 	}
 
-	// 4. Checagem de duplicidade com dados normalizados
+	// 5. Checagem de duplicidade com dados normalizados
 	if _, err := s.repo.FindUserByEmail(normalizedEmail); err == nil {
 		return nil, ErrUserAlreadyExists
 	}
@@ -74,7 +96,7 @@ func (s *Service) Register(input RegisterInput) (*User, error) {
 		return nil, ErrUserAlreadyExists
 	}
 
-	// 5. Hash da senha com bcrypt
+	// 6. Hash da senha com bcrypt
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
@@ -157,4 +179,8 @@ func (s *Service) ValidateSession(rawToken string) (*User, error) {
 func (s *Service) Logout(rawToken string) error {
 	hashedToken := s.hashToken(rawToken)
 	return s.repo.DeleteSessionByToken(hashedToken)
+}
+
+func (s *Service) CleanExpiredSessions() error {
+	return s.repo.DeleteExpiredSessions()
 }

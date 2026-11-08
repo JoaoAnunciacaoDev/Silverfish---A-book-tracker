@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -13,13 +14,25 @@ import (
 )
 
 func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
-	// Health Check
+	// Health Check ativo (verifica a conectividade real com o banco de dados)
 	r.GET("/api/health", func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil || sqlDB.Ping() != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status":    "unhealthy",
+				"service":   "silverfish-api",
+				"database":  "disconnected",
+				"error":     "falha na conexão com o banco de dados",
+				"timestamp": time.Now().UTC().Format(time.RFC3339),
+			})
+			return
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"status":    "ok",
+			"status":    "healthy",
 			"service":   "silverfish-api",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
 			"database":  cfg.DBDriver,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
 		})
 	})
 
@@ -31,7 +44,18 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		authService := auth.NewService(authRepo, cfg)
 		authHandler := auth.NewHandler(authService, cfg)
 
-		// Rate Limiter contra brute force: até 5 requisições em rajada, recarregando 1 a cada 3 segundos
+		// Rotina em segundo plano para limpeza de sessões expiradas a cada 1 hora
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for range ticker.C {
+				if err := authService.CleanExpiredSessions(); err != nil {
+					log.Printf("Aviso: falha ao limpar sessões expiradas: %v", err)
+				}
+			}
+		}()
+
+		// Rate Limiter contra brute force: até 5 requisições rápidas, recarregando 1 a cada 3 segundos
 		authRateLimit := middleware.RateLimiter(rate.Every(3*time.Second), 5)
 
 		authGroup := api.Group("/auth")

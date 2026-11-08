@@ -31,7 +31,7 @@ func (h *Handler) Register(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
-		if err == ErrInvalidUsername || err == ErrInvalidTimezone {
+		if err == ErrInvalidUsername || err == ErrInvalidTimezone || err == ErrWeakPassword {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
