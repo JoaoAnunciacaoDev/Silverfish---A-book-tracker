@@ -10,6 +10,9 @@ type User struct {
 	PasswordHash string    `json:"-" gorm:"not null"`
 	Role         string    `json:"role" gorm:"default:USER"`
 	Timezone     string    `json:"timezone" gorm:"default:America/Sao_Paulo"`
+	Bio          string    `json:"bio" gorm:"default:''"`
+	AvatarURL    string    `json:"avatar_url" gorm:"default:''"`
+	IsPrivate    bool      `json:"is_private" gorm:"default:false"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

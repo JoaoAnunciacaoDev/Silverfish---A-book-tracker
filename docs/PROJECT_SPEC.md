@@ -303,11 +303,11 @@ A organização deverá manter as responsabilidades separadas, sem necessidade d
 
 ### Fase 3 — Funcionalidades sociais
 
-- [ ] Perfis públicos.
-- [ ] Configurações de privacidade.
-- [ ] Sistema de seguidores.
-- [ ] Feed de atividades.
-- [ ] Rankings entre seguidores.
+- [x] Perfis públicos.
+- [x] Configurações de privacidade.
+- [x] Sistema de seguidores.
+- [x] Feed de atividades.
+- [x] Rankings entre seguidores.
 
 ### Fase 4 — Engajamento e administração
 

@@ -99,6 +99,13 @@ func CreateBookReviewHandler(c *gin.Context) {
 		return
 	}
 
+	// Emite atividade no feed social
+	_ = RecordActivity(db, user.ID, schemas.ActivityReviewPosted, &bookID, map[string]interface{}{
+		"rating":     review.Rating,
+		"comment":    review.Comment,
+		"book_title": book.Title,
+	})
+
 	review.User = user
 	review.Book = &book
 

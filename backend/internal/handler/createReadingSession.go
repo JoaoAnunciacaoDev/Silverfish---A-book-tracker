@@ -118,6 +118,8 @@ func CreateReadingSessionHandler(c *gin.Context) {
 
 	var session schemas.ReadingSession
 	now := time.Now()
+	justFinished := false
+	justStarted := false
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var userBook schemas.UserBook
@@ -188,11 +190,13 @@ func CreateReadingSessionHandler(c *gin.Context) {
 			userBook.Status = schemas.StatusRead
 			if userBook.FinishedAt == nil {
 				userBook.FinishedAt = &now
+				justFinished = true
 			}
 		} else if userBook.Status == schemas.StatusWantToRead {
 			userBook.Status = schemas.StatusReading
 			if userBook.StartedAt == nil {
 				userBook.StartedAt = &now
+				justStarted = true
 			}
 		}
 
@@ -216,6 +220,24 @@ func CreateReadingSessionHandler(c *gin.Context) {
 
 	// Avalia e desbloqueia conquistas pendentes do usuario
 	_ = CheckAndUnlockAchievements(db, user.ID)
+
+	// Emite atividade no feed social
+	_ = RecordActivity(db, user.ID, schemas.ActivityReadingSession, &session.UserBook.BookID, map[string]interface{}{
+		"pages_read": session.PagesRead,
+		"start_page": session.StartPage,
+		"end_page":   session.EndPage,
+		"book_title": session.UserBook.Book.Title,
+	})
+
+	if justFinished {
+		_ = RecordActivity(db, user.ID, schemas.ActivityBookFinished, &session.UserBook.BookID, map[string]interface{}{
+			"book_title": session.UserBook.Book.Title,
+		})
+	} else if justStarted {
+		_ = RecordActivity(db, user.ID, schemas.ActivityBookStarted, &session.UserBook.BookID, map[string]interface{}{
+			"book_title": session.UserBook.Book.Title,
+		})
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Sessao de leitura registrada com sucesso",

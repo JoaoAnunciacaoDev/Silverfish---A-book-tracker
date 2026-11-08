@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (data: LoginInput) => Promise<void>
   register: (data: RegisterInput) => Promise<void>
   logout: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -17,13 +18,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const refreshUser = async () => {
+    try {
+      const res = await authApi.getMe()
+      setUser(res.user)
+    } catch {
+      setUser(null)
+    }
+  }
+
   // Ao carregar a página, verifica se há uma sessão ativa
   useEffect(() => {
-    authApi
-      .getMe()
-      .then((res) => setUser(res.user))
-      .catch(() => setUser(null))
-      .finally(() => setIsLoading(false))
+    refreshUser().finally(() => setIsLoading(false))
   }, [])
 
   const login = async (data: LoginInput) => {
@@ -57,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}

@@ -5,6 +5,9 @@ export interface User {
   display_name: string
   role: 'USER' | 'SUPERUSER'
   timezone: string
+  bio?: string
+  avatar_url?: string
+  is_private?: boolean
   created_at: string
   updated_at: string
 }

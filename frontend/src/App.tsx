@@ -5,6 +5,8 @@ import { BookCatalogPage } from '@/features/books/BookCatalogPage'
 import { LibraryPage } from '@/features/library/LibraryPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { JournalPage } from '@/features/journal/JournalPage'
+import { SocialPage } from '@/features/social/SocialPage'
+import { PrivacySettingsModal } from '@/features/social/PrivacySettingsModal'
 import {
   BookOpen,
   Compass,
@@ -12,11 +14,14 @@ import {
   LineChart,
   LogOut,
   ScrollText,
+  Users,
+  Settings,
 } from 'lucide-react'
 
 function MainLayout() {
   const { user, logout } = useAuth()
-  const [currentTab, setCurrentTab] = useState<'library' | 'journal' | 'dashboard' | 'catalog'>('library')
+  const [currentTab, setCurrentTab] = useState<'library' | 'journal' | 'dashboard' | 'catalog' | 'social'>('library')
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -75,6 +80,18 @@ function MainLayout() {
               </button>
 
               <button
+                onClick={() => setCurrentTab('social')}
+                className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  currentTab === 'social'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Comunidade</span>
+              </button>
+
+              <button
                 onClick={() => setCurrentTab('catalog')}
                 className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   currentTab === 'catalog'
@@ -89,13 +106,18 @@ function MainLayout() {
           </div>
 
           {/* Perfil & Logout */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2.5 bg-slate-800/60 pl-2 pr-3 py-1.5 rounded-full border border-slate-700/50 text-xs">
+          <div className="flex items-center space-x-2.5">
+            <button
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="flex items-center space-x-2 bg-slate-800/60 hover:bg-slate-800 pl-2 pr-3 py-1.5 rounded-full border border-slate-700/50 text-xs transition cursor-pointer"
+              title="Configurações de Perfil e Privacidade"
+            >
               <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[11px]">
                 {user?.display_name?.charAt(0).toUpperCase() || 'U'}
               </div>
               <span className="font-medium text-slate-200 hidden xs:inline">{user?.display_name}</span>
-            </div>
+              <Settings className="w-3.5 h-3.5 text-slate-400" />
+            </button>
 
             <button
               onClick={logout}
@@ -116,16 +138,18 @@ function MainLayout() {
           <JournalPage />
         ) : currentTab === 'dashboard' ? (
           <DashboardPage />
+        ) : currentTab === 'social' ? (
+          <SocialPage />
         ) : (
           <BookCatalogPage />
         )}
       </main>
 
       {/* Barra de Navegação Inferior para Mobile (estilo App / PWA) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-3 flex items-center justify-around shadow-2xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-2 flex items-center justify-around shadow-2xl">
         <button
           onClick={() => setCurrentTab('library')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'library'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -137,7 +161,7 @@ function MainLayout() {
 
         <button
           onClick={() => setCurrentTab('journal')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'journal'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -149,7 +173,7 @@ function MainLayout() {
 
         <button
           onClick={() => setCurrentTab('dashboard')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'dashboard'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -160,8 +184,20 @@ function MainLayout() {
         </button>
 
         <button
+          onClick={() => setCurrentTab('social')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
+            currentTab === 'social'
+              ? 'text-emerald-400 bg-emerald-500/10'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Users className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-semibold">Social</span>
+        </button>
+
+        <button
           onClick={() => setCurrentTab('catalog')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'catalog'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -171,6 +207,11 @@ function MainLayout() {
           <span className="text-[10px] font-semibold">Explorar</span>
         </button>
       </nav>
+
+      {/* Modal de Configurações de Perfil e Privacidade */}
+      {isPrivacyModalOpen && (
+        <PrivacySettingsModal onClose={() => setIsPrivacyModalOpen(false)} />
+      )}
     </div>
   )
 }

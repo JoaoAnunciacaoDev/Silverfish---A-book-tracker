@@ -103,5 +103,29 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 		// Conquistas (Gamificação - Fase 2)
 		api.GET("/achievements", middleware.RequireAuth(), handler.ListAchievementsHandler)
+
+		// Funcionalidades Sociais, Perfis & Rankings (Fase 3)
+		users := api.Group("/users")
+		users.Use(middleware.RequireAuth())
+		{
+			users.GET("/search", handler.SearchUsersHandler)
+			users.GET("/profile/:username", handler.GetUserProfileHandler)
+			users.PUT("/me/profile", handler.UpdateProfileHandler)
+			users.GET("/me/privacy", handler.GetPrivacySettingsHandler)
+			users.PUT("/me/privacy", handler.UpdatePrivacySettingsHandler)
+			users.POST("/:username/follow", handler.FollowUserHandler)
+			users.DELETE("/:username/follow", handler.UnfollowUserHandler)
+			users.GET("/:username/followers", handler.ListFollowersHandler)
+			users.GET("/:username/following", handler.ListFollowingHandler)
+			users.GET("/me/pending-follows", handler.ListPendingFollowsHandler)
+			users.POST("/follows/:id/respond", handler.RespondFollowRequestHandler)
+		}
+
+		social := api.Group("/social")
+		social.Use(middleware.RequireAuth())
+		{
+			social.GET("/feed", handler.GetFeedHandler)
+			social.GET("/rankings", handler.GetLeaderboardHandler)
+		}
 	}
 }

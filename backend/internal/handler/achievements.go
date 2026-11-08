@@ -236,6 +236,12 @@ func CheckAndUnlockAchievements(tx *gorm.DB, userID string) []schemas.Achievemen
 			if err := tx.Create(&ua).Error; err == nil {
 				unlockedMap[ach.Code] = true
 				newlyUnlocked = append(newlyUnlocked, ach)
+				_ = RecordActivity(tx, userID, schemas.ActivityAchievementUnlocked, nil, map[string]interface{}{
+					"code":        ach.Code,
+					"title":       ach.Title,
+					"description": ach.Description,
+					"icon":        ach.Icon,
+				})
 			}
 		}
 	}
