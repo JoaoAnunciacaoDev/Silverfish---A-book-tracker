@@ -1,8 +1,6 @@
-package auth
+package schemas
 
-import (
-	"time"
-)
+import "time"
 
 type User struct {
 	ID           string    `json:"id" gorm:"primaryKey"`
@@ -10,8 +8,8 @@ type User struct {
 	Username     string    `json:"username" gorm:"unique;not null"`
 	DisplayName  string    `json:"display_name" gorm:"not null"`
 	PasswordHash string    `json:"-" gorm:"not null"`
-	Role         string    `json:"role"`
-	Timezone     string    `json:"timezone"`
+	Role         string    `json:"role" gorm:"default:USER"`
+	Timezone     string    `json:"timezone" gorm:"default:America/Sao_Paulo"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -22,17 +20,4 @@ type Session struct {
 	Token     string    `json:"token" gorm:"unique;not null;index"`
 	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
 	CreatedAt time.Time `json:"created_at"`
-}
-
-// DTOs (Data Transfer Objects) para as requisições
-type RegisterInput struct {
-	Email       string `json:"email" binding:"required,email"`
-	Username    string `json:"username" binding:"required,min=3,max=30"`
-	Password    string `json:"password" binding:"required,min=6"`
-	DisplayName string `json:"display_name" binding:"required"`
-	Timezone    string `json:"timezone"`
-}
-type LoginInput struct {
-	EmailOrUsername string `json:"email_or_username" binding:"required"`
-	Password        string `json:"password" binding:"required"`
 }

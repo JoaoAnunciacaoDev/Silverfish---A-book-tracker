@@ -93,7 +93,7 @@ export function AuthPage() {
         {/* Mensagem de Erro */}
         {error && (
           <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -153,7 +153,7 @@ export function AuthPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Nome de Usuário (@handle)
+                Nome de Usuário
               </label>
               <input
                 type="text"
