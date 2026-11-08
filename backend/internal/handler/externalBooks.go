@@ -97,11 +97,10 @@ type googleBooksResponse struct {
 	} `json:"items"`
 }
 
-func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey string) ([]ExternalBookItem, int, error) {
-	startIndex := (page - 1) * limit
+func fetchGoogleBooks(ctx context.Context, query string, startIndex, limit int, apiKey string) (*googleBooksResponse, error) {
 	apiURL := fmt.Sprintf(
 		"https://www.googleapis.com/books/v1/volumes?q=%s&startIndex=%d&maxResults=%d",
-		url.QueryEscape(q),
+		url.QueryEscape(query),
 		startIndex,
 		limit,
 	)
@@ -112,23 +111,51 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	req.Header.Set("User-Agent", "SilverfishBookTracker/1.0")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("google books retornou status %d", resp.StatusCode)
+		return nil, fmt.Errorf("google books retornou status %d", resp.StatusCode)
 	}
 
 	var gResp googleBooksResponse
 	if err := json.NewDecoder(resp.Body).Decode(&gResp); err != nil {
+		return nil, err
+	}
+
+	return &gResp, nil
+}
+
+func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey string) ([]ExternalBookItem, int, error) {
+	startIndex := (page - 1) * limit
+
+	var gResp *googleBooksResponse
+	var err error
+
+	// Se a consulta não contém operadores específicos, tenta primeiro buscar no título (intitle:)
+	// Isso evita que termos comuns (como "a", "em", "jogo") caiam no OCR de texto completo de milhões de livros.
+	if !strings.Contains(q, ":") {
+		gResp, err = fetchGoogleBooks(ctx, "intitle:"+q, startIndex, limit, apiKey)
+		if err != nil || gResp == nil || len(gResp.Items) == 0 {
+			// Fallback para busca aberta geral
+			gResp, err = fetchGoogleBooks(ctx, q, startIndex, limit, apiKey)
+		}
+	} else {
+		gResp, err = fetchGoogleBooks(ctx, q, startIndex, limit, apiKey)
+	}
+
+	if err != nil {
 		return nil, 0, err
+	}
+	if gResp == nil || len(gResp.Items) == 0 {
+		return nil, 0, nil
 	}
 
 	results := make([]ExternalBookItem, 0, len(gResp.Items))
