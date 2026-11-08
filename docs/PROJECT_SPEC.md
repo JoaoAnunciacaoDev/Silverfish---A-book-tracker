@@ -273,17 +273,17 @@ A organização deverá manter as responsabilidades separadas, sem necessidade d
 
 ### Fase 1 — Fundação e funcionalidades essenciais
 
-- [ ] Configuração do ambiente com mise.
-- [ ] Configuração do frontend.
-- [ ] Configuração do backend.
-- [ ] Configuração dos bancos de dados.
-- [ ] Estrutura inicial da API.
-- [ ] Autenticação e usuários.
-- [ ] Cadastro de livros.
-- [ ] Biblioteca pessoal.
-- [ ] Registro de sessões de leitura.
-- [ ] Definição de metas diárias.
-- [ ] Sistema de ofensivas.
+- [x] Configuração do ambiente com mise.
+- [x] Configuração do frontend.
+- [x] Configuração do backend.
+- [x] Configuração dos bancos de dados.
+- [x] Estrutura inicial da API.
+- [x] Autenticação e usuários.
+- [x] Cadastro de livros.
+- [x] Biblioteca pessoal.
+- [x] Registro de sessões de leitura.
+- [x] Definição de metas diárias.
+- [x] Sistema de ofensivas.
 
 ### Fase 2 — Acompanhamento e estatísticas
 

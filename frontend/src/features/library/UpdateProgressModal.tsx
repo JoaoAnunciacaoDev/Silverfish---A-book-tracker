@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { UserBook } from '@/types/library'
 import { Bookmark, CheckCircle2, Loader2, X } from 'lucide-react'
 
@@ -15,13 +15,20 @@ export function UpdateProgressModal({
   onClose,
   onUpdate,
 }: UpdateProgressModalProps) {
-  if (!isOpen || !item) return null
-
-  const totalPages = item.book.page_count || 100
-  const [page, setPage] = useState(item.current_page)
+  const [page, setPage] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (item && isOpen) {
+      setPage(item.current_page)
+      setError(null)
+    }
+  }, [item, isOpen])
+
+  if (!isOpen || !item) return null
+
+  const totalPages = item.book.page_count || 100
   const percentage = Math.min(100, Math.round((page / totalPages) * 100))
   const isFinished = page >= totalPages
 

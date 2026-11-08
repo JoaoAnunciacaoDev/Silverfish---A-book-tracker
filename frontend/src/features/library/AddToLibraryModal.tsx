@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { addToLibrary } from '@/api/library'
 import type { Book } from '@/types/book'
 import type { UserBook, UserBookStatus } from '@/types/library'
@@ -17,13 +17,22 @@ export function AddToLibraryModal({
   onClose,
   onSuccess,
 }: AddToLibraryModalProps) {
-  if (!isOpen || !book) return null
-
   const [status, setStatus] = useState<UserBookStatus>('want_to_read')
   const [currentPage, setCurrentPage] = useState(0)
   const [favorite, setFavorite] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setStatus('want_to_read')
+      setCurrentPage(0)
+      setFavorite(false)
+      setError(null)
+    }
+  }, [isOpen])
+
+  if (!isOpen || !book) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

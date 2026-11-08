@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createReadingSession } from '@/api/reading'
 import type { UserBook } from '@/types/library'
 import type { ReadingSession } from '@/types/reading'
@@ -19,17 +19,29 @@ export function LogSessionModal({
   onClose,
   onSuccess,
 }: LogSessionModalProps) {
-  if (!isOpen || !item) return null
-
-  const totalPages = item.book.page_count || 100
-  const [startPage, setStartPage] = useState(item.current_page)
-  const [endPage, setEndPage] = useState(Math.min(totalPages, item.current_page + 15))
+  const [startPage, setStartPage] = useState(0)
+  const [endPage, setEndPage] = useState(15)
   const [comprehension, setComprehension] = useState<number>(4)
   const [feeling, setFeeling] = useState<string>('Focado')
   const [notes, setNotes] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (item && isOpen) {
+      const total = item.book.page_count || 100
+      setStartPage(item.current_page)
+      setEndPage(Math.min(total, item.current_page + 15))
+      setComprehension(4)
+      setFeeling('Focado')
+      setNotes('')
+      setError(null)
+    }
+  }, [item, isOpen])
+
+  if (!isOpen || !item) return null
+
+  const totalPages = item.book.page_count || 100
   const pagesRead = Math.max(0, endPage - startPage)
   const willCompleteBook = endPage >= totalPages
 

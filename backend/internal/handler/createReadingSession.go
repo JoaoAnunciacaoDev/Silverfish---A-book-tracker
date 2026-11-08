@@ -9,6 +9,7 @@ import (
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/schemas"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type CreateReadingSessionRequest struct {
@@ -50,9 +51,12 @@ func getTodayInTimezone(tz string) string {
 }
 
 func syncGoalHistory(userID, date string) {
-	// 1. Obtem a meta diaria configurada do usuario (padrao 20 paginas)
+	_ = syncGoalHistoryTx(db, userID, date)
+}
+
+func syncGoalHistoryTx(tx *gorm.DB, userID, date string) error {
 	var goal schemas.DailyGoal
-	if err := db.Where("user_id = ?", userID).First(&goal).Error; err != nil {
+	if err := tx.Where("user_id = ?", userID).First(&goal).Error; err != nil {
 		goal = schemas.DailyGoal{
 			ID:              uuid.NewString(),
 			UserID:          userID,
@@ -60,22 +64,24 @@ func syncGoalHistory(userID, date string) {
 			CreatedAt:       time.Now(),
 			UpdatedAt:       time.Now(),
 		}
-		_ = db.Create(&goal).Error
+		if err := tx.Create(&goal).Error; err != nil {
+			return err
+		}
 	}
 
-	// 2. Soma todas as paginas lidas nessa data
 	var totalPagesRead int64
-	db.Model(&schemas.ReadingSession{}).
+	if err := tx.Model(&schemas.ReadingSession{}).
 		Where("user_id = ? AND read_at = ?", userID, date).
 		Select("COALESCE(SUM(pages_read), 0)").
-		Scan(&totalPagesRead)
+		Scan(&totalPagesRead).Error; err != nil {
+		return err
+	}
 
 	target := goal.DailyPageTarget
 	met := int(totalPagesRead) >= target
 
-	// 3. Atualiza ou insere o historico da meta
 	var history schemas.GoalHistory
-	err := db.Where("user_id = ? AND date = ?", userID, date).First(&history).Error
+	err := tx.Where("user_id = ? AND date = ?", userID, date).First(&history).Error
 	if err != nil {
 		history = schemas.GoalHistory{
 			ID:        uuid.NewString(),
@@ -86,13 +92,13 @@ func syncGoalHistory(userID, date string) {
 			Met:       met,
 			CreatedAt: time.Now(),
 		}
-		_ = db.Create(&history).Error
-	} else {
-		history.PagesRead = int(totalPagesRead)
-		history.Target = target
-		history.Met = met
-		_ = db.Save(&history).Error
+		return tx.Create(&history).Error
 	}
+
+	history.PagesRead = int(totalPagesRead)
+	history.Target = target
+	history.Met = met
+	return tx.Save(&history).Error
 }
 
 func CreateReadingSessionHandler(c *gin.Context) {
@@ -110,66 +116,103 @@ func CreateReadingSessionHandler(c *gin.Context) {
 		return
 	}
 
-	var userBook schemas.UserBook
-	if err := db.Preload("Book").Where("id = ? AND user_id = ?", request.UserBookID, user.ID).First(&userBook).Error; err != nil {
-		sendError(c, http.StatusNotFound, "livro nao encontrado na sua estante")
-		return
-	}
-
-	if userBook.Book.PageCount > 0 && request.EndPage > userBook.Book.PageCount {
-		request.EndPage = userBook.Book.PageCount
-	}
-
-	pagesRead := request.EndPage - request.StartPage
-
-	// Define data da sessao considerando fuso horario do usuario
-	readAt := request.ReadAt
-	if readAt == "" {
-		readAt = getTodayInTimezone(user.Timezone)
-	}
-
+	var session schemas.ReadingSession
 	now := time.Now()
-	session := schemas.ReadingSession{
-		ID:            uuid.NewString(),
-		UserID:        user.ID,
-		UserBookID:    userBook.ID,
-		StartPage:     request.StartPage,
-		EndPage:       request.EndPage,
-		PagesRead:     pagesRead,
-		ReadAt:        readAt,
-		Comprehension: request.Comprehension,
-		Feeling:       request.Feeling,
-		Notes:         request.Notes,
-		CreatedAt:     now,
-	}
 
-	if err := db.Create(&session).Error; err != nil {
-		sendError(c, http.StatusInternalServerError, "erro ao registrar sessao de leitura")
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var userBook schemas.UserBook
+		if err := tx.Preload("Book").Where("id = ? AND user_id = ?", request.UserBookID, user.ID).First(&userBook).Error; err != nil {
+			return errors.New("livro nao encontrado na sua estante")
+		}
+
+		if userBook.Status == schemas.StatusRead {
+			return errors.New("este livro ja foi concluido")
+		}
+
+		if request.StartPage < userBook.CurrentPage {
+			return errors.New("a pagina inicial nao pode ser menor que o progresso atual do livro")
+		}
+
+		if userBook.Book.PageCount > 0 {
+			if request.StartPage >= userBook.Book.PageCount {
+				return errors.New("a pagina inicial nao pode ser maior ou igual ao total de paginas do livro")
+			}
+			if request.EndPage > userBook.Book.PageCount {
+				request.EndPage = userBook.Book.PageCount
+			}
+			if request.EndPage <= request.StartPage {
+				return errors.New("a pagina final deve ser maior que a pagina inicial")
+			}
+		}
+
+		var overlappingCount int64
+		if err := tx.Model(&schemas.ReadingSession{}).
+			Where("user_book_id = ? AND start_page < ? AND end_page > ?", userBook.ID, request.EndPage, request.StartPage).
+			Count(&overlappingCount).Error; err != nil {
+			return err
+		}
+		if overlappingCount > 0 {
+			return errors.New("o intervalo de paginas informado se sobrepoe a uma sessao ja registrada")
+		}
+
+		readAt := request.ReadAt
+		if readAt == "" {
+			readAt = getTodayInTimezone(user.Timezone)
+		}
+
+		pagesRead := request.EndPage - request.StartPage
+
+		session = schemas.ReadingSession{
+			ID:            uuid.NewString(),
+			UserID:        user.ID,
+			UserBookID:    userBook.ID,
+			StartPage:     request.StartPage,
+			EndPage:       request.EndPage,
+			PagesRead:     pagesRead,
+			ReadAt:        readAt,
+			Comprehension: request.Comprehension,
+			Feeling:       request.Feeling,
+			Notes:         request.Notes,
+			CreatedAt:     now,
+		}
+
+		if err := tx.Create(&session).Error; err != nil {
+			return err
+		}
+
+		// Atualiza progresso do livro na estante
+		userBook.CurrentPage = request.EndPage
+		userBook.UpdatedAt = now
+
+		if userBook.Book.PageCount > 0 && userBook.CurrentPage >= userBook.Book.PageCount {
+			userBook.Status = schemas.StatusRead
+			if userBook.FinishedAt == nil {
+				userBook.FinishedAt = &now
+			}
+		} else if userBook.Status == schemas.StatusWantToRead {
+			userBook.Status = schemas.StatusReading
+			if userBook.StartedAt == nil {
+				userBook.StartedAt = &now
+			}
+		}
+
+		if err := tx.Save(&userBook).Error; err != nil {
+			return err
+		}
+
+		// Sincroniza meta diaria e streak atomicamente dentro da transacao
+		if err := syncGoalHistoryTx(tx, user.ID, readAt); err != nil {
+			return err
+		}
+
+		session.UserBook = userBook
+		return nil
+	})
+
+	if err != nil {
+		sendError(c, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	// Atualiza progresso do livro na estante
-	userBook.CurrentPage = request.EndPage
-	userBook.UpdatedAt = now
-
-	if userBook.Book.PageCount > 0 && userBook.CurrentPage >= userBook.Book.PageCount {
-		userBook.Status = schemas.StatusRead
-		if userBook.FinishedAt == nil {
-			userBook.FinishedAt = &now
-		}
-	} else if userBook.Status == schemas.StatusWantToRead {
-		userBook.Status = schemas.StatusReading
-		if userBook.StartedAt == nil {
-			userBook.StartedAt = &now
-		}
-	}
-
-	_ = db.Save(&userBook).Error
-
-	// Sincroniza historico da meta diaria e streak
-	syncGoalHistory(user.ID, readAt)
-
-	session.UserBook = userBook
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Sessao de leitura registrada com sucesso",

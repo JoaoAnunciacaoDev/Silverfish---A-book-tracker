@@ -11,6 +11,7 @@ import (
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/config"
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/middleware"
+	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/schemas"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -38,6 +39,19 @@ func Initialize(cfg *config.Config, db *gorm.DB) {
 		Addr:    ":" + cfg.Port,
 		Handler: r,
 	}
+
+	// Rotina em segundo plano: limpa sessoes expiradas periodicamente a cada 1 hora
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if result := db.Where("expires_at < ?", time.Now()).Delete(&schemas.Session{}); result.Error != nil {
+				log.Printf("Aviso: falha na limpeza periodica de sessoes: %v", result.Error)
+			} else if result.RowsAffected > 0 {
+				log.Printf("Limpeza periodica: %d sessoes expiradas removidas", result.RowsAffected)
+			}
+		}
+	}()
 
 	// Inicia o servidor HTTP em uma goroutine separada
 	go func() {

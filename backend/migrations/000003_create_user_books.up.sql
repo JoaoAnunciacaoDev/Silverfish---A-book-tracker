@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS user_books (
     user_id TEXT NOT NULL,
     book_id TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'want_to_read',
-    favorite BOOLEAN NOT NULL DEFAULT 0,
+    favorite BOOLEAN NOT NULL DEFAULT FALSE,
     current_page INTEGER NOT NULL DEFAULT 0,
     started_at TIMESTAMP,
     finished_at TIMESTAMP,
