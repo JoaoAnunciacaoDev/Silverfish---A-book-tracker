@@ -1,0 +1,326 @@
+import { useState, useEffect } from 'react'
+import {
+  getNotificationSettings,
+  updateNotificationSettings,
+  getVapidPublicKey,
+  subscribePush,
+  sendTestNotification,
+} from '@/api/notifications'
+import type { NotificationSettings } from '@/types/notifications'
+import { X, Bell, Clock, Flame, Check, AlertCircle, Smartphone } from 'lucide-react'
+
+interface NotificationSettingsModalProps {
+  onClose: () => void
+}
+
+export function NotificationSettingsModal({ onClose }: NotificationSettingsModalProps) {
+  const [settings, setSettings] = useState<NotificationSettings>({
+    daily_reminder_enabled: true,
+    reminder_time: '20:00',
+    streak_alert_enabled: true,
+    social_notifications_enabled: true,
+  })
+  const [activeDevices, setActiveDevices] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isSubscribing, setIsSubscribing] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+  )
+
+  useEffect(() => {
+    let isMounted = true
+    setIsLoading(true)
+
+    getNotificationSettings()
+      .then((data) => {
+        if (isMounted) {
+          setSettings(data.settings)
+          setActiveDevices(data.active_devices_count)
+        }
+      })
+      .catch((err) => console.error('Erro ao buscar preferências de notificação:', err))
+      .finally(() => {
+        if (isMounted) setIsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleEnablePushInBrowser = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Seu navegador não suporta notificações Web Push.')
+      return
+    }
+
+    setIsSubscribing(true)
+    setFeedback(null)
+
+    try {
+      const permission = await Notification.requestPermission()
+      setBrowserPermission(permission)
+
+      if (permission !== 'granted') {
+        throw new Error('Permissão de notificações não concedida no navegador.')
+      }
+
+      // 1. Registra Service Worker
+      const reg = await navigator.serviceWorker.register('/sw.js')
+      await navigator.serviceWorker.ready
+
+      // 2. Obtém chave pública VAPID do backend
+      const { vapid_public_key } = await getVapidPublicKey()
+
+      // Converte VAPID base64 para Uint8Array
+      const padding = '='.repeat((4 - (vapid_public_key.length % 4)) % 4)
+      const base64 = (vapid_public_key + padding).replace(/-/g, '+').replace(/_/g, '/')
+      const rawData = window.atob(base64)
+      const outputArray = new Uint8Array(rawData.length)
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i)
+      }
+
+      // 3. Inscreve o pushManager
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: outputArray,
+      })
+
+      const subJSON = subscription.toJSON()
+      if (!subJSON.endpoint || !subJSON.keys) {
+        throw new Error('Falha ao gerar credenciais da inscrição no navegador.')
+      }
+
+      // 4. Salva no backend
+      await subscribePush({
+        endpoint: subJSON.endpoint,
+        keys: {
+          p256dh: subJSON.keys.p256dh || '',
+          auth: subJSON.keys.auth || '',
+        },
+        user_agent: navigator.userAgent,
+      })
+
+      setActiveDevices((prev) => prev + 1)
+      setFeedback('Dispositivo ativado com sucesso para receber notificações!')
+    } catch (err: any) {
+      setFeedback(err.message || 'Erro ao habilitar notificações no navegador.')
+    } finally {
+      setIsSubscribing(false)
+    }
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSaving(true)
+    setFeedback(null)
+
+    try {
+      await updateNotificationSettings(settings)
+      setFeedback('Preferências salvas com sucesso!')
+      setTimeout(() => {
+        onClose()
+      }, 1200)
+    } catch (err: any) {
+      setFeedback(err.message || 'Erro ao salvar preferências')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleTestNotification = async () => {
+    setIsTesting(true)
+    setFeedback(null)
+
+    try {
+      const res = await sendTestNotification()
+      setFeedback(res.message)
+      // Se houver suporte a Notification na janela, exibe localmente
+      if (Notification.permission === 'granted') {
+        new Notification(res.payload.title, {
+          body: res.payload.body,
+          icon: res.payload.icon,
+        })
+      }
+    } catch (err: any) {
+      setFeedback(err.message || 'Erro ao enviar notificação de teste')
+    } finally {
+      setIsTesting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/60">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Lembretes & Notificações</h3>
+              <p className="text-xs text-slate-400">Configure seus horários de leitura e alertas</p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-full transition cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Formulário */}
+        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto max-h-[80vh]">
+          {/* Card de Ativação do Dispositivo */}
+          <div className="p-4 bg-slate-800/40 border border-slate-800 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                <Smartphone className="w-4 h-4 text-emerald-400" />
+                <span>Notificações neste Aparelho</span>
+              </div>
+              <span className="text-[11px] text-slate-400">{activeDevices} dispositivo(s) conectado(s)</span>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Ative para receber lembretes de leitura mesmo com a aba fechada.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleEnablePushInBrowser}
+                disabled={isSubscribing || browserPermission === 'granted'}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                  browserPermission === 'granted'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                }`}
+              >
+                {browserPermission === 'granted' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    Permitido neste navegador
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-3.5 h-3.5" />
+                    {isSubscribing ? 'Solicitando...' : 'Ativar no Navegador'}
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTestNotification}
+                disabled={isTesting || activeDevices === 0}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer disabled:opacity-40"
+              >
+                {isTesting ? 'Enviando...' : 'Enviar Teste'}
+              </button>
+            </div>
+          </div>
+
+          {/* Opções de Horário e Alertas */}
+          <div className="space-y-4">
+            <label className="flex items-start gap-3 p-3.5 bg-slate-800/30 border border-slate-800 rounded-2xl cursor-pointer hover:border-slate-700 transition">
+              <input
+                type="checkbox"
+                checked={settings.daily_reminder_enabled}
+                onChange={(e) =>
+                  setSettings({ ...settings, daily_reminder_enabled: e.target.checked })
+                }
+                className="mt-0.5 rounded border-slate-700 text-emerald-500 focus:ring-emerald-500"
+              />
+              <div className="text-xs flex-1">
+                <span className="font-semibold text-white block mb-0.5">Lembrete Diário de Leitura</span>
+                <span className="text-slate-400 block leading-relaxed mb-2">
+                  Receba um lembrete no horário agendado caso ainda não tenha lido no dia.
+                </span>
+
+                {settings.daily_reminder_enabled && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-slate-300 text-xs font-medium">Horário:</span>
+                    <input
+                      type="time"
+                      value={settings.reminder_time}
+                      onChange={(e) =>
+                        setSettings({ ...settings, reminder_time: e.target.value })
+                      }
+                      className="px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                )}
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-3.5 bg-slate-800/30 border border-slate-800 rounded-2xl cursor-pointer hover:border-slate-700 transition">
+              <input
+                type="checkbox"
+                checked={settings.streak_alert_enabled}
+                onChange={(e) =>
+                  setSettings({ ...settings, streak_alert_enabled: e.target.checked })
+                }
+                className="mt-0.5 rounded border-slate-700 text-emerald-500 focus:ring-emerald-500"
+              />
+              <div className="text-xs flex-1">
+                <span className="font-semibold text-white flex items-center gap-1 mb-0.5">
+                  <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  Alerta de Ofensiva em Risco
+                </span>
+                <span className="text-slate-400 block leading-relaxed">
+                  Aviso de emergência caso sua ofensiva diária vá expirar antes da meia-noite.
+                </span>
+              </div>
+            </label>
+          </div>
+
+          {feedback && (
+            <div
+              className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-1.5 ${
+                feedback.includes('sucesso') || feedback.includes('perfeitamente')
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+              }`}
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{feedback}</span>
+            </div>
+          )}
+
+          {/* Botões */}
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || isLoading}
+              className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-500/20 transition cursor-pointer flex items-center gap-1.5"
+            >
+              {isSaving ? (
+                'Salvando...'
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  Salvar Preferências
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

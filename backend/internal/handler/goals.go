@@ -207,7 +207,7 @@ func GetStreakHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"current_streak": currentStreak,
 		"best_streak":    bestStreak,
-		"today_met":      historyList != nil && len(historyList) > 0 && historyList[0].Date == today && historyList[0].Met,
+		"today_met":      len(historyList) > 0 && historyList[0].Date == today && historyList[0].Met,
 	})
 }
 

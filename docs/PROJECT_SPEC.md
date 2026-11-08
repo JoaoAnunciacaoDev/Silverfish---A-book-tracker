@@ -311,12 +311,12 @@ A organização deverá manter as responsabilidades separadas, sem necessidade d
 
 ### Fase 4 — Engajamento e administração
 
-- [ ] Notificações push.
-- [ ] Lembretes configuráveis.
-- [ ] Publicação de patch notes.
-- [ ] Integração das patch notes com o feed.
-- [ ] Sistema de administração.
-- [ ] Gerenciamento de usuários.
+- [x] Notificações push.
+- [x] Lembretes configuráveis.
+- [x] Publicação de patch notes.
+- [x] Integração das patch notes com o feed.
+- [x] Sistema de administração.
+- [x] Gerenciamento de usuários.
 
 ### Fase 5 — Melhorias futuras
 

@@ -33,7 +33,7 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		api.POST("/auth/logout", handler.LogoutHandler)
 		api.GET("/auth/me", middleware.RequireAuth(), handler.MeHandler)
 
-		// Administração (SUPERUSER)
+		// Administração (SUPERUSER - Fase 4)
 		admin := api.Group("/admin")
 		admin.Use(middleware.RequireAuth(), middleware.RequireRole("SUPERUSER"))
 		{
@@ -43,6 +43,13 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 					"message": "Painel de administração acessado com sucesso",
 				})
 			})
+			admin.GET("/dashboard", handler.AdminDashboardStatsHandler)
+			admin.GET("/users", handler.AdminListUsersHandler)
+			admin.PUT("/users/:id/role", handler.AdminUpdateUserRoleHandler)
+			admin.GET("/patch-notes", handler.AdminListAllPatchNotesHandler)
+			admin.POST("/patch-notes", handler.AdminCreatePatchNoteHandler)
+			admin.PUT("/patch-notes/:id", handler.AdminUpdatePatchNoteHandler)
+			admin.DELETE("/patch-notes/:id", handler.AdminDeletePatchNoteHandler)
 		}
 
 		api.GET("/books", handler.ListBooksHandler)
@@ -126,6 +133,23 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		{
 			social.GET("/feed", handler.GetFeedHandler)
 			social.GET("/rankings", handler.GetLeaderboardHandler)
+		}
+
+		// Patch Notes (Notas de Atualização - Fase 4)
+		api.GET("/patch-notes", handler.ListPublishedPatchNotesHandler)
+		api.GET("/patch-notes/latest", handler.GetLatestPatchNoteHandler)
+		api.GET("/patch-notes/:id", handler.GetPatchNoteHandler)
+
+		// Notificações Push & Lembretes (Fase 4)
+		api.GET("/notifications/vapid-public-key", handler.GetVapidPublicKeyHandler)
+		notifications := api.Group("/notifications")
+		notifications.Use(middleware.RequireAuth())
+		{
+			notifications.POST("/subscribe", handler.SubscribePushHandler)
+			notifications.POST("/unsubscribe", handler.UnsubscribePushHandler)
+			notifications.GET("/settings", handler.GetNotificationSettingsHandler)
+			notifications.PUT("/settings", handler.UpdateNotificationSettingsHandler)
+			notifications.POST("/test", handler.SendTestNotificationHandler)
 		}
 	}
 }
