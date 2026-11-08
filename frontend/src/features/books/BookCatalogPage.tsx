@@ -8,6 +8,7 @@ import type { Book, ExternalBookItem, PaginationMeta } from '@/types/book'
 import { BookCard } from './BookCard'
 import { ExternalBookCard } from './ExternalBookCard'
 import { CreateBookModal } from './CreateBookModal'
+import { AddToLibraryModal } from '@/features/library/AddToLibraryModal'
 import {
   BookOpen,
   ChevronLeft,
@@ -23,6 +24,7 @@ export function BookCatalogPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [bookToAddToLibrary, setBookToAddToLibrary] = useState<Book | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   // Estado dos livros locais (quando não há busca ativa)
@@ -351,7 +353,11 @@ export function BookCatalogPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {localBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  onAddToLibrary={(b) => setBookToAddToLibrary(b)}
+                />
               ))}
             </div>
           )}
@@ -403,6 +409,14 @@ export function BookCatalogPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleBookCreated}
+      />
+
+      {/* Modal de Adicionar à Estante */}
+      <AddToLibraryModal
+        book={bookToAddToLibrary}
+        isOpen={Boolean(bookToAddToLibrary)}
+        onClose={() => setBookToAddToLibrary(null)}
+        onSuccess={(item) => showToast(`"${item.book.title}" adicionado à sua estante!`)}
       />
     </div>
   )

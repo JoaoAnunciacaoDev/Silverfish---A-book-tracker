@@ -47,5 +47,16 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		api.GET("/books/search-external", handler.SearchExternalBooksHandler)
 		api.POST("/books", middleware.RequireAuth(), handler.CreateBookHandler)
 		api.POST("/books/import", middleware.RequireAuth(), handler.ImportBookHandler)
+
+		// Biblioteca Pessoal (Estante do Usuário - Etapa 6)
+		library := api.Group("/library")
+		library.Use(middleware.RequireAuth())
+		{
+			library.GET("", handler.ListLibraryHandler)
+			library.POST("", handler.AddToLibraryHandler)
+			library.PUT("/:id", handler.UpdateLibraryBookHandler)
+			library.DELETE("/:id", handler.DeleteLibraryBookHandler)
+			library.PATCH("/:id/favorite", handler.ToggleFavoriteHandler)
+		}
 	}
 }
