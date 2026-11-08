@@ -16,6 +16,9 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 	// Inicializa os manipuladores com as dependências do banco e configuração
 	handler.InitializeHandler(db, cfg)
 
+	// Popula conquistas padrao do sistema
+	handler.SeedAchievements(db)
+
 	// Health Check ativo
 	r.GET("/api/health", handler.HealthCheckHandler)
 
@@ -97,5 +100,8 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			stats.GET("/dashboard", handler.GetDashboardStatsHandler)
 			stats.GET("/heatmap", handler.GetHeatmapHandler)
 		}
+
+		// Conquistas (Gamificação - Fase 2)
+		api.GET("/achievements", middleware.RequireAuth(), handler.ListAchievementsHandler)
 	}
 }

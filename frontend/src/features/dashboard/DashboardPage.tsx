@@ -1,6 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'
 import { getDashboardStats, getHeatmapData } from '@/api/stats'
+import { listAchievements } from '@/api/achievements'
 import type { DashboardStats, DayActivity } from '@/types/stats'
+import type { AchievementView } from '@/types/achievements'
+import { AchievementsView } from '@/features/achievements/AchievementsView'
 import {
   BookOpen,
   Calendar,
@@ -18,6 +21,9 @@ import {
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [activities, setActivities] = useState<DayActivity[]>([])
+  const [achievements, setAchievements] = useState<AchievementView[]>([])
+  const [unlockedCount, setUnlockedCount] = useState(0)
+  const [totalAchievementsCount, setTotalAchievementsCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [hoveredDay, setHoveredDay] = useState<{ date: string; pages: number; sessions: number } | null>(null)
 
@@ -25,12 +31,16 @@ export function DashboardPage() {
     async function loadData() {
       try {
         setIsLoading(true)
-        const [statsData, heatmapData] = await Promise.all([
+        const [statsData, heatmapData, achievementsData] = await Promise.all([
           getDashboardStats(),
           getHeatmapData(),
+          listAchievements(),
         ])
         setStats(statsData)
         setActivities(heatmapData.activities || [])
+        setAchievements(achievementsData.achievements || [])
+        setUnlockedCount(achievementsData.unlocked_count || 0)
+        setTotalAchievementsCount(achievementsData.total_count || 0)
       } catch (err) {
         console.error('Erro ao carregar dados do dashboard:', err)
       } finally {
@@ -352,6 +362,13 @@ export function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Galeria de Conquistas & Gamificação */}
+      <AchievementsView
+        achievements={achievements}
+        unlockedCount={unlockedCount}
+        totalCount={totalAchievementsCount}
+      />
     </div>
   )
 }

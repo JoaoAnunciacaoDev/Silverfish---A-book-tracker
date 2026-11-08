@@ -17,12 +17,20 @@ export async function createReadingSession(
 export async function listReadingSessions(params: {
   date?: string
   user_book_id?: string
+  book_id?: string
+  feeling?: string
+  from_date?: string
+  to_date?: string
   page?: number
   limit?: number
 } = {}): Promise<{ sessions: ReadingSession[]; pagination: { page: number; limit: number; total_items: number } }> {
   const query = new URLSearchParams()
   if (params.date) query.set('date', params.date)
   if (params.user_book_id) query.set('user_book_id', params.user_book_id)
+  if (params.book_id) query.set('book_id', params.book_id)
+  if (params.feeling) query.set('feeling', params.feeling)
+  if (params.from_date) query.set('from_date', params.from_date)
+  if (params.to_date) query.set('to_date', params.to_date)
   if (params.page) query.set('page', params.page.toString())
   if (params.limit) query.set('limit', params.limit.toString())
 

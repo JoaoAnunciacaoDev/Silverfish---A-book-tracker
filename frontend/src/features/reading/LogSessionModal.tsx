@@ -5,20 +5,36 @@ import type { ReadingSession } from '@/types/reading'
 import { BookOpen, CheckCircle, Loader2, Star, X } from 'lucide-react'
 
 interface LogSessionModalProps {
-  item: UserBook | null
+  item?: UserBook | null
+  availableBooks?: UserBook[]
   isOpen: boolean
   onClose: () => void
   onSuccess: (session: ReadingSession) => void
 }
 
-const feelings = ['Inspirado', 'Focado', 'Curioso', 'Emocionado', 'Cansado']
+const feelings = [
+  { label: 'Focado', emoji: '🎯' },
+  { label: 'Feliz', emoji: '😊' },
+  { label: 'Humor', emoji: '😂' },
+  { label: 'Inspirado', emoji: '✨' },
+  { label: 'Curioso', emoji: '🧐' },
+  { label: 'Ansioso', emoji: '😰' },
+  { label: 'Medo', emoji: '😱' },
+  { label: 'Emocionado', emoji: '🥹' },
+  { label: 'Reflexivo', emoji: '🤔' },
+  { label: 'Triste', emoji: '😢' },
+  { label: 'Chocado', emoji: '🤯' },
+  { label: 'Cansado', emoji: '🥱' },
+]
 
 export function LogSessionModal({
   item,
+  availableBooks = [],
   isOpen,
   onClose,
   onSuccess,
 }: LogSessionModalProps) {
+  const [selectedBookId, setSelectedBookId] = useState<string>('')
   const [startPage, setStartPage] = useState(0)
   const [endPage, setEndPage] = useState(15)
   const [comprehension, setComprehension] = useState<number>(4)
@@ -27,28 +43,41 @@ export function LogSessionModal({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Determina o livro ativo (o item direto ou o selecionado na lista de livros)
+  const activeBook = item || availableBooks.find((b) => b.id === selectedBookId) || availableBooks[0] || null
+
   useEffect(() => {
-    if (item && isOpen) {
-      const total = item.book.page_count || 100
-      setStartPage(item.current_page)
-      setEndPage(Math.min(total, item.current_page + 15))
+    if (isOpen) {
+      if (item) {
+        setSelectedBookId(item.id)
+      } else if (availableBooks.length > 0 && !selectedBookId) {
+        setSelectedBookId(availableBooks[0].id)
+      }
+    }
+  }, [isOpen, item, availableBooks, selectedBookId])
+
+  useEffect(() => {
+    if (activeBook && isOpen) {
+      const total = activeBook.book.page_count || 100
+      setStartPage(activeBook.current_page)
+      setEndPage(Math.min(total, activeBook.current_page + 15))
       setComprehension(4)
       setFeeling('Focado')
       setNotes('')
       setError(null)
     }
-  }, [item, isOpen])
+  }, [activeBook?.id, isOpen])
 
-  if (!isOpen || !item) return null
+  if (!isOpen || !activeBook) return null
 
-  const totalPages = item.book.page_count || 100
+  const totalPages = activeBook.book.page_count || 100
   const pagesRead = Math.max(0, endPage - startPage)
   const willCompleteBook = endPage >= totalPages
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (endPage <= startPage) {
-      setError('A pagina final deve ser maior que a pagina inicial')
+      setError('A página final deve ser maior que a página inicial')
       return
     }
 
@@ -56,7 +85,7 @@ export function LogSessionModal({
       setIsLoading(true)
       setError(null)
       const res = await createReadingSession({
-        user_book_id: item.id,
+        user_book_id: activeBook.id,
         start_page: startPage,
         end_page: endPage,
         comprehension,
@@ -69,7 +98,7 @@ export function LogSessionModal({
       if (err instanceof Error) {
         setError(err.message)
       } else {
-        setError('Erro ao registrar sessao de leitura')
+        setError('Erro ao registrar sessão de leitura')
       }
     } finally {
       setIsLoading(false)
@@ -94,10 +123,27 @@ export function LogSessionModal({
           </button>
         </div>
 
-        <div className="space-y-1">
-          <h4 className="font-semibold text-white text-sm truncate">{item.book.title}</h4>
-          <p className="text-xs text-slate-400">{item.book.author}</p>
-        </div>
+        {!item && availableBooks.length > 1 ? (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-300">Escolha o livro</label>
+            <select
+              value={activeBook.id}
+              onChange={(e) => setSelectedBookId(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm font-semibold text-white focus:outline-hidden focus:border-emerald-500 cursor-pointer"
+            >
+              {availableBooks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.book.title} ({b.current_page}/{b.book.page_count || '?'} pág.)
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <h4 className="font-semibold text-white text-sm truncate">{activeBook.book.title}</h4>
+            <p className="text-xs text-slate-400">{activeBook.book.author}</p>
+          </div>
+        )}
 
         {error && (
           <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl">
@@ -172,15 +218,16 @@ export function LogSessionModal({
               {feelings.map((f) => (
                 <button
                   type="button"
-                  key={f}
-                  onClick={() => setFeeling(f)}
-                  className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition cursor-pointer ${
-                    feeling === f
+                  key={f.label}
+                  onClick={() => setFeeling(f.label)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition cursor-pointer ${
+                    feeling === f.label
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                       : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  {f}
+                  <span className="text-[13px]">{f.emoji}</span>
+                  <span>{f.label}</span>
                 </button>
               ))}
             </div>

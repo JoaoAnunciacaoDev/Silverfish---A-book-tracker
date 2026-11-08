@@ -4,17 +4,19 @@ import { AuthPage } from '@/features/auth/AuthPage'
 import { BookCatalogPage } from '@/features/books/BookCatalogPage'
 import { LibraryPage } from '@/features/library/LibraryPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { JournalPage } from '@/features/journal/JournalPage'
 import {
   BookOpen,
   Compass,
   Library,
   LineChart,
   LogOut,
+  ScrollText,
 } from 'lucide-react'
 
 function MainLayout() {
   const { user, logout } = useAuth()
-  const [currentTab, setCurrentTab] = useState<'library' | 'dashboard' | 'catalog'>('library')
+  const [currentTab, setCurrentTab] = useState<'library' | 'journal' | 'dashboard' | 'catalog'>('library')
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -46,6 +48,18 @@ function MainLayout() {
               >
                 <Library className="w-4 h-4" />
                 <span>Minha Estante</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentTab('journal')}
+                className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  currentTab === 'journal'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <ScrollText className="w-4 h-4" />
+                <span>Diário</span>
               </button>
 
               <button
@@ -98,6 +112,8 @@ function MainLayout() {
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 pb-24 md:pb-8">
         {currentTab === 'library' ? (
           <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
+        ) : currentTab === 'journal' ? (
+          <JournalPage />
         ) : currentTab === 'dashboard' ? (
           <DashboardPage />
         ) : (
@@ -106,10 +122,10 @@ function MainLayout() {
       </main>
 
       {/* Barra de Navegação Inferior para Mobile (estilo App / PWA) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-6 flex items-center justify-around shadow-2xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-3 flex items-center justify-around shadow-2xl">
         <button
           onClick={() => setCurrentTab('library')}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
             currentTab === 'library'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -120,8 +136,20 @@ function MainLayout() {
         </button>
 
         <button
+          onClick={() => setCurrentTab('journal')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
+            currentTab === 'journal'
+              ? 'text-emerald-400 bg-emerald-500/10'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <ScrollText className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-semibold">Diário</span>
+        </button>
+
+        <button
           onClick={() => setCurrentTab('dashboard')}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
             currentTab === 'dashboard'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -133,7 +161,7 @@ function MainLayout() {
 
         <button
           onClick={() => setCurrentTab('catalog')}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition cursor-pointer ${
             currentTab === 'catalog'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'

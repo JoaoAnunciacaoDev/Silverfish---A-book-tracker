@@ -296,10 +296,10 @@ A organização deverá manter as responsabilidades separadas, sem necessidade d
 
 - [x] Dashboard individual.
 - [x] Estatísticas por período.
-- [ ] Diário de leitura.
+- [x] Diário de leitura.
 - [x] Calendário de contribuições.
-- [ ] Sistema de conquistas.
-- [ ] Histórico de leitura.
+- [x] Sistema de conquistas.
+- [x] Histórico de leitura.
 
 ### Fase 3 — Funcionalidades sociais
 
@@ -320,10 +320,8 @@ A organização deverá manter as responsabilidades separadas, sem necessidade d
 
 ### Fase 5 — Melhorias futuras
 
-- [ ] Desafios mensais de leitura.
 - [ ] Sistema expandido de conquistas.
 - [ ] Curtidas e comentários.
-- [ ] Diário pessoal com citações e reflexões.
 - [ ] PWA aprimorada.
 - [ ] Melhorias de acessibilidade e experiência mobile.
 

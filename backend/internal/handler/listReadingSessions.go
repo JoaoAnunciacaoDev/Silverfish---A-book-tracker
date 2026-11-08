@@ -15,6 +15,10 @@ func ListReadingSessionsHandler(c *gin.Context) {
 
 	date := strings.TrimSpace(c.Query("date"))
 	userBookID := strings.TrimSpace(c.Query("user_book_id"))
+	bookID := strings.TrimSpace(c.Query("book_id"))
+	feeling := strings.TrimSpace(c.Query("feeling"))
+	fromDate := strings.TrimSpace(c.Query("from_date"))
+	toDate := strings.TrimSpace(c.Query("to_date"))
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
@@ -28,13 +32,26 @@ func ListReadingSessionsHandler(c *gin.Context) {
 
 	query := db.Model(&schemas.ReadingSession{}).
 		Preload("UserBook.Book").
-		Where("user_id = ?", user.ID)
+		Where("reading_sessions.user_id = ?", user.ID)
 
 	if date != "" {
-		query = query.Where("read_at = ?", date)
+		query = query.Where("reading_sessions.read_at = ?", date)
+	}
+	if fromDate != "" {
+		query = query.Where("reading_sessions.read_at >= ?", fromDate)
+	}
+	if toDate != "" {
+		query = query.Where("reading_sessions.read_at <= ?", toDate)
+	}
+	if feeling != "" {
+		query = query.Where("reading_sessions.feeling LIKE ?", "%"+feeling+"%")
 	}
 	if userBookID != "" {
-		query = query.Where("user_book_id = ?", userBookID)
+		query = query.Where("reading_sessions.user_book_id = ?", userBookID)
+	}
+	if bookID != "" {
+		query = query.Joins("JOIN user_books ON user_books.id = reading_sessions.user_book_id").
+			Where("user_books.book_id = ?", bookID)
 	}
 
 	var totalItems int64
@@ -44,7 +61,7 @@ func ListReadingSessionsHandler(c *gin.Context) {
 	}
 
 	var sessions []schemas.ReadingSession
-	if err := query.Order("read_at DESC, created_at DESC").Offset(offset).Limit(limit).Find(&sessions).Error; err != nil {
+	if err := query.Order("reading_sessions.read_at DESC, reading_sessions.created_at DESC").Offset(offset).Limit(limit).Find(&sessions).Error; err != nil {
 		sendError(c, http.StatusInternalServerError, "erro ao listar sessoes de leitura")
 		return
 	}

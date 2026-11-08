@@ -214,6 +214,9 @@ func CreateReadingSessionHandler(c *gin.Context) {
 		return
 	}
 
+	// Avalia e desbloqueia conquistas pendentes do usuario
+	_ = CheckAndUnlockAchievements(db, user.ID)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Sessao de leitura registrada com sucesso",
 		"session": session,
