@@ -1,3 +1,28 @@
 [tools]
-bun = "1.3.13"
-go = "1.27.0"
+bun = "latest"
+go = "latest"
+
+[tasks."setup:frontend"]
+description = "Instala as dependências do frontend"
+dir = "frontend"
+run = "bun install"
+
+[tasks."setup:backend"]
+description = "Organiza os módulos do backend"
+dir = "backend"
+run = "go mod tidy"
+
+[tasks.setup]
+description = "Setup completo do projeto"
+depends = ["setup:frontend", "setup:backend"]
+
+[tasks.front]
+description = "Inicia o servidor de desenvolvimento do frontend"
+dir = "frontend"
+run = "bun dev"
+
+[tasks.back]
+description = "Inicia o servidor de desenvolvimento do backend"
+dir = "backend/cmd/server"
+run = "go run main.go"
+
