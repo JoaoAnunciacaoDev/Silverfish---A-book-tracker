@@ -1,0 +1,42 @@
+package config
+
+import (
+	"log"
+	"os"
+
+	"github.com/joho/godotenv"
+)
+
+type Config struct {
+	Port          string
+	Env           string
+	DBDriver      string
+	DBSource      string
+	SessionSecret string
+	FrontendURL   string
+}
+
+// Load lê o arquivo .env e retorna um ponteiro para a struct Config preenchida com as variáveis de ambiente.
+func load() *Config {
+	if err := godotenv.Load(); err != nil {
+		log.Println("Aviso: arquivo .env não encontrado, lendo variáveis do sistema.")
+	}
+
+	return &Config{
+		Port:          getEnv("PORT", "8080"),
+		Env:           getEnv("ENV", "development"),
+		DBDriver:      getEnv("DB_DRIVER", "sqlite"),
+		DBSource:      getEnv("DB_SOURCE", "silverfish.db"),
+		SessionSecret: getEnv("SESSION_SECRET", "silverfish-secret-key-12345"),
+		FrontendURL:   getEnv("FRONTEND_URL", "http://localhost:5173"),
+	}
+}
+
+// getEnv tenta conseguir as variáveis de ambiente, em caso de falha retorna um fallback.
+func getEnv(key, fallback string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+
+	return fallback
+}
