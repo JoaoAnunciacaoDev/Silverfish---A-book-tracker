@@ -9,6 +9,7 @@ type Achievement struct {
 	Description string    `json:"description" gorm:"not null"`
 	Icon        string    `json:"icon" gorm:"not null"`
 	Category    string    `json:"category" gorm:"not null"`
+	Tier        string    `json:"tier" gorm:"default:'bronze'"`
 	TargetValue int       `json:"target_value" gorm:"not null;default:1"`
 	CreatedAt   time.Time `json:"created_at"`
 }

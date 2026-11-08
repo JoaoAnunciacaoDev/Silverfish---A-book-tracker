@@ -133,6 +133,10 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		{
 			social.GET("/feed", handler.GetFeedHandler)
 			social.GET("/rankings", handler.GetLeaderboardHandler)
+			social.POST("/activities/:id/like", handler.ToggleActivityLikeHandler)
+			social.GET("/activities/:id/comments", handler.ListActivityCommentsHandler)
+			social.POST("/activities/:id/comments", handler.CreateActivityCommentHandler)
+			social.DELETE("/comments/:id", handler.DeleteActivityCommentHandler)
 		}
 
 		// Patch Notes (Notas de Atualização - Fase 4)

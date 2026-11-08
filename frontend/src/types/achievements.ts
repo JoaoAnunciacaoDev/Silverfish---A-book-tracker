@@ -4,6 +4,7 @@ export interface AchievementView {
   description: string
   icon: string
   category: 'pages' | 'books' | 'streak' | 'reading' | 'shelf' | 'reviews' | string
+  tier: 'bronze' | 'silver' | 'gold' | 'diamond' | string
   target_value: number
   current_value: number
   progress_percent: number

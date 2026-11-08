@@ -1,0 +1,43 @@
+{
+  "name": "Silverfish — A Book Tracker",
+  "short_name": "Silverfish",
+  "description": "Plataforma de incentivo à leitura com metas diárias, ofensivas e comunidade de leitores.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020617",
+  "theme_color": "#10b981",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Minha Estante",
+      "short_name": "Estante",
+      "description": "Veja seus livros lendo, lidos e quero ler",
+      "url": "/?tab=library",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Registrar Leitura",
+      "short_name": "Diário",
+      "description": "Anote as páginas lidas hoje",
+      "url": "/?tab=journal",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Comunidade",
+      "short_name": "Social",
+      "description": "Veja o feed de leituras e rankings",
+      "url": "/?tab=social",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

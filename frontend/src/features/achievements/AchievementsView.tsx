@@ -14,6 +14,9 @@ import {
   Star,
   Trophy,
   Zap,
+  Moon,
+  Rocket,
+  Compass,
 } from 'lucide-react'
 
 interface AchievementsViewProps {
@@ -79,6 +82,12 @@ export function AchievementsView({
         return <Layers {...props} />
       case 'Smile':
         return <Smile {...props} />
+      case 'Moon':
+        return <Moon {...props} />
+      case 'Rocket':
+        return <Rocket {...props} />
+      case 'Compass':
+        return <Compass {...props} />
       default:
         return <Trophy {...props} />
     }
@@ -164,15 +173,37 @@ export function AchievementsView({
                 </div>
 
                 {ach.unlocked ? (
-                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Conquistada</span>
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {ach.tier && (
+                      <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded border ${
+                        ach.tier === 'diamond'
+                          ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                          : ach.tier === 'gold'
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                          : ach.tier === 'silver'
+                          ? 'bg-slate-400/15 text-slate-300 border-slate-400/30'
+                          : 'bg-orange-800/15 text-orange-400 border-orange-800/30'
+                      }`}>
+                        {ach.tier}
+                      </span>
+                    )}
+                    <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Conquistada</span>
+                    </span>
+                  </div>
                 ) : (
-                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700/60">
-                    <Lock className="w-3 h-3 text-slate-500" />
-                    <span>Bloqueada</span>
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {ach.tier && (
+                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700/50">
+                        {ach.tier}
+                      </span>
+                    )}
+                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700/60">
+                      <Lock className="w-3 h-3 text-slate-500" />
+                      <span>Bloqueada</span>
+                    </span>
+                  </div>
                 )}
               </div>
 

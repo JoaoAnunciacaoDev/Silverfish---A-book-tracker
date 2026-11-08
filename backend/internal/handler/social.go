@@ -73,8 +73,34 @@ func GetFeedHandler(c *gin.Context) {
 		return
 	}
 
+	type ActivityFeedView struct {
+		schemas.Activity
+		LikesCount    int64 `json:"likes_count"`
+		HasLiked      bool  `json:"has_liked"`
+		CommentsCount int64 `json:"comments_count"`
+	}
+
+	feedViews := make([]ActivityFeedView, 0, len(activities))
+	for _, act := range activities {
+		var likesCount int64
+		_ = db.Model(&schemas.ActivityLike{}).Where("activity_id = ?", act.ID).Count(&likesCount).Error
+
+		var userLikeCount int64
+		_ = db.Model(&schemas.ActivityLike{}).Where("activity_id = ? AND user_id = ?", act.ID, user.ID).Count(&userLikeCount).Error
+
+		var commentsCount int64
+		_ = db.Model(&schemas.ActivityComment{}).Where("activity_id = ?", act.ID).Count(&commentsCount).Error
+
+		feedViews = append(feedViews, ActivityFeedView{
+			Activity:      act,
+			LikesCount:    likesCount,
+			HasLiked:      userLikeCount > 0,
+			CommentsCount: commentsCount,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"activities": activities,
+		"activities": feedViews,
 		"page":       page,
 		"limit":      limit,
 		"total":      total,

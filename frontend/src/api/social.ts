@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import type {
   ActivityItem,
+  ActivityComment,
   LeaderboardEntry,
   UserProfile,
   UserPrivacySettings,
@@ -28,6 +29,41 @@ export async function getLeaderboard(
 }> {
   const query = month ? `?criterion=${criterion}&month=${month}` : `?criterion=${criterion}`
   return apiClient(`/api/social/rankings${query}`)
+}
+
+export async function toggleActivityLike(activityId: string): Promise<{
+  liked: boolean
+  likes_count: number
+}> {
+  return apiClient(`/api/social/activities/${activityId}/like`, {
+    method: 'POST',
+  })
+}
+
+export async function getActivityComments(activityId: string): Promise<{
+  comments: ActivityComment[]
+  total: number
+}> {
+  return apiClient(`/api/social/activities/${activityId}/comments`)
+}
+
+export async function createActivityComment(
+  activityId: string,
+  content: string
+): Promise<{
+  message: string
+  comment: ActivityComment
+}> {
+  return apiClient(`/api/social/activities/${activityId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+}
+
+export async function deleteActivityComment(commentId: string): Promise<{ message: string }> {
+  return apiClient(`/api/social/comments/${commentId}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function getUserProfile(username: string): Promise<UserProfile> {

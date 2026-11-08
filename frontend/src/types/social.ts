@@ -11,6 +11,16 @@ export type ActivityType =
   | 'READING_SESSION'
   | 'REVIEW_POSTED'
   | 'ACHIEVEMENT_UNLOCKED'
+  | 'PATCH_NOTE_PUBLISHED'
+
+export interface ActivityComment {
+  id: string
+  activity_id: string
+  user_id: string
+  content: string
+  created_at: string
+  user: User
+}
 
 export interface ActivityItem {
   id: string
@@ -21,6 +31,9 @@ export interface ActivityItem {
   created_at: string
   user: User
   book?: Book
+  likes_count?: number
+  has_liked?: boolean
+  comments_count?: number
 }
 
 export interface ActivityMetadata {
@@ -37,6 +50,9 @@ export interface ActivityMetadata {
   title?: string
   description?: string
   icon?: string
+  tier?: string
+  version?: string
+  summary?: string
 }
 
 export interface LeaderboardEntry {

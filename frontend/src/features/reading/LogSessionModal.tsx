@@ -3,6 +3,7 @@ import { createReadingSession } from '@/api/reading'
 import type { UserBook } from '@/types/library'
 import type { ReadingSession } from '@/types/reading'
 import { BookOpen, CheckCircle, Loader2, Star, X } from 'lucide-react'
+import { triggerConfetti } from '@/components/ui/confetti'
 
 interface LogSessionModalProps {
   item?: UserBook | null
@@ -92,6 +93,9 @@ export function LogSessionModal({
         feeling,
         notes: notes.trim() || undefined,
       })
+      if (willCompleteBook) {
+        triggerConfetti()
+      }
       onSuccess(res.session)
       onClose()
     } catch (err: unknown) {

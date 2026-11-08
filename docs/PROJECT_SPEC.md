@@ -320,10 +320,10 @@ A organização deverá manter as responsabilidades separadas, sem necessidade d
 
 ### Fase 5 — Melhorias futuras
 
-- [ ] Sistema expandido de conquistas.
-- [ ] Curtidas e comentários.
-- [ ] PWA aprimorada.
-- [ ] Melhorias de acessibilidade e experiência mobile.
+- [x] Sistema expandido de conquistas.
+- [x] Curtidas e comentários.
+- [x] PWA aprimorada.
+- [x] Melhorias de acessibilidade e experiência mobile.
 
 ---
 
