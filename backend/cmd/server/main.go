@@ -11,6 +11,11 @@ import (
 func main() {
 	// 1. Configurações
 	cfg := config.Load()
+	if cfg.GoogleBooksAPIKey != "" {
+		log.Println("Provedor Google Books: ativado (chave encontrada)")
+	} else {
+		log.Println("Provedor Google Books: sem chave configurada (usando Open Library)")
+	}
 
 	// 2. Banco de dados (com suporte a SQLite e PostgreSQL + Foreign Keys ativadas)
 	db, err := database.Connect(cfg)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -369,16 +370,27 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		googleKey = cfg.GoogleBooksAPIKey
 	}
 
+	log.Printf("[BUSCA EXTERNA] Iniciando busca por '%s' (página %d) | Google Books configurado: %v", q, page, googleKey != "")
+
 	// 1. Tenta buscar no Google Books (prioridade para catálogo nacional)
 	results, totalItems, err = searchGoogleBooks(c.Request.Context(), q, page, limit, googleKey)
+	if err != nil {
+		log.Printf("[GOOGLE BOOKS] Erro na consulta: %v", err)
+	} else {
+		log.Printf("[GOOGLE BOOKS] Itens retornados: %d (Total estimado: %d)", len(results), totalItems)
+	}
 
 	// 2. Se o Google Books falhar ou não retornar nenhum resultado, faz fallback para a Open Library
 	if err != nil || len(results) == 0 {
+		log.Printf("[FALLBACK] Acionando busca na Open Library para '%s'...", q)
 		olResults, olTotal, olErr := searchOpenLibrary(c.Request.Context(), q, page, limit)
 		if olErr == nil && len(olResults) > 0 {
 			results = olResults
 			totalItems = olTotal
 			err = nil
+			log.Printf("[OPEN LIBRARY] Sucesso! Itens retornados: %d", len(results))
+		} else if olErr != nil {
+			log.Printf("[OPEN LIBRARY] Erro na consulta: %v", olErr)
 		}
 	}
 
