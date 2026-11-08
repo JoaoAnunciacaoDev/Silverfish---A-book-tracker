@@ -3,16 +3,18 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { AuthPage } from '@/features/auth/AuthPage'
 import { BookCatalogPage } from '@/features/books/BookCatalogPage'
 import { LibraryPage } from '@/features/library/LibraryPage'
+import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import {
   BookOpen,
   Compass,
   Library,
+  LineChart,
   LogOut,
 } from 'lucide-react'
 
 function MainLayout() {
   const { user, logout } = useAuth()
-  const [currentTab, setCurrentTab] = useState<'library' | 'catalog'>('library')
+  const [currentTab, setCurrentTab] = useState<'library' | 'dashboard' | 'catalog'>('library')
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -44,6 +46,18 @@ function MainLayout() {
               >
                 <Library className="w-4 h-4" />
                 <span>Minha Estante</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentTab('dashboard')}
+                className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  currentTab === 'dashboard'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <LineChart className="w-4 h-4" />
+                <span>Painel & Metas</span>
               </button>
 
               <button
@@ -84,6 +98,8 @@ function MainLayout() {
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8">
         {currentTab === 'library' ? (
           <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
+        ) : currentTab === 'dashboard' ? (
+          <DashboardPage />
         ) : (
           <BookCatalogPage />
         )}

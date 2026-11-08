@@ -10,13 +10,14 @@ import (
 )
 
 type LibrarySummary struct {
-	Total      int64 `json:"total"`
-	Reading    int64 `json:"reading"`
-	WantToRead int64 `json:"want_to_read"`
-	Read       int64 `json:"read"`
-	Paused     int64 `json:"paused"`
-	Abandoned  int64 `json:"abandoned"`
-	Favorites  int64 `json:"favorites"`
+	Total        int64 `json:"total"`
+	Reading      int64 `json:"reading"`
+	WantToRead   int64 `json:"want_to_read"`
+	Read         int64 `json:"read"`
+	Paused       int64 `json:"paused"`
+	Abandoned    int64 `json:"abandoned"`
+	InCollection int64 `json:"in_collection"`
+	Favorites    int64 `json:"favorites"`
 }
 
 func ListLibraryHandler(c *gin.Context) {
@@ -45,6 +46,7 @@ func ListLibraryHandler(c *gin.Context) {
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusRead).Count(&summary.Read)
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusPaused).Count(&summary.Paused)
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusAbandoned).Count(&summary.Abandoned)
+	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusInCollection).Count(&summary.InCollection)
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND favorite = true", user.ID).Count(&summary.Favorites)
 
 	// 2. Monta consulta filtrada

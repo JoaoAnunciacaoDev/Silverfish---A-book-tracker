@@ -3,16 +3,17 @@ package schemas
 import "time"
 
 const (
-	StatusWantToRead = "want_to_read"
-	StatusReading    = "reading"
-	StatusRead       = "read"
-	StatusPaused     = "paused"
-	StatusAbandoned  = "abandoned"
+	StatusWantToRead   = "want_to_read"
+	StatusReading      = "reading"
+	StatusRead         = "read"
+	StatusPaused       = "paused"
+	StatusAbandoned    = "abandoned"
+	StatusInCollection = "in_collection"
 )
 
 func IsValidUserBookStatus(s string) bool {
 	switch s {
-	case StatusWantToRead, StatusReading, StatusRead, StatusPaused, StatusAbandoned:
+	case StatusWantToRead, StatusReading, StatusRead, StatusPaused, StatusAbandoned, StatusInCollection:
 		return true
 	default:
 		return false

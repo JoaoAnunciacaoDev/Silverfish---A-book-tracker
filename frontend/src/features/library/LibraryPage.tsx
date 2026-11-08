@@ -10,9 +10,11 @@ import { LibraryBookCard } from './LibraryBookCard'
 import { UpdateProgressModal } from './UpdateProgressModal'
 import { LogSessionModal } from '@/features/reading/LogSessionModal'
 import { ReadingHistoryModal } from '@/features/reading/ReadingHistoryModal'
+import { ReviewModal } from '@/features/reviews/ReviewModal'
 import { DailyGoalWidget } from '@/features/goals/DailyGoalWidget'
 import { StreakWidget } from '@/features/goals/StreakWidget'
 import {
+  Archive,
   BookMarked,
   BookOpen,
   CheckCircle2,
@@ -41,11 +43,13 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
     read: 0,
     paused: 0,
     abandoned: 0,
+    in_collection: 0,
     favorites: 0,
   })
   const [isLoading, setIsLoading] = useState(false)
   const [selectedBookForProgress, setSelectedBookForProgress] = useState<UserBook | null>(null)
   const [selectedBookForSession, setSelectedBookForSession] = useState<UserBook | null>(null)
+  const [selectedBookForReview, setSelectedBookForReview] = useState<UserBook | null>(null)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [goalRefreshKey, setGoalRefreshKey] = useState(0)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -249,6 +253,18 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
           </button>
 
           <button
+            onClick={() => setActiveFilter('in_collection')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
+              activeFilter === 'in_collection'
+                ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>No Acervo ({summary.in_collection})</span>
+          </button>
+
+          <button
             onClick={() => setActiveFilter('paused')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
               activeFilter === 'paused'
@@ -321,10 +337,18 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
               onChangeStatus={handleChangeStatus}
               onToggleFavorite={handleToggleFavorite}
               onRemove={handleRemove}
+              onOpenReview={(book) => setSelectedBookForReview(book)}
             />
           ))}
         </div>
       )}
+
+      {/* Modal de Avaliações / Resenhas */}
+      <ReviewModal
+        item={selectedBookForReview}
+        isOpen={Boolean(selectedBookForReview)}
+        onClose={() => setSelectedBookForReview(null)}
+      />
 
       {/* Modal de Atualização de Progresso */}
       <UpdateProgressModal

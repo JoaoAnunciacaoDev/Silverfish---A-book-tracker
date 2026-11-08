@@ -76,7 +76,7 @@ func UpdateLibraryBookHandler(c *gin.Context) {
 					userBook.CurrentPage = userBook.Book.PageCount
 				}
 
-			case schemas.StatusWantToRead, schemas.StatusPaused, schemas.StatusAbandoned:
+			case schemas.StatusWantToRead, schemas.StatusPaused, schemas.StatusAbandoned, schemas.StatusInCollection:
 				userBook.FinishedAt = nil
 			}
 		}

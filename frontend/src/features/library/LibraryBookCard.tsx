@@ -1,11 +1,13 @@
 import type { UserBook, UserBookStatus } from '@/types/library'
 import {
+  Archive,
   BookOpen,
   CheckCircle2,
   Clock,
   Heart,
   MoreVertical,
   Pause,
+  Star,
   Trash2,
   XCircle,
 } from 'lucide-react'
@@ -18,6 +20,7 @@ interface LibraryBookCardProps {
   onChangeStatus: (item: UserBook, newStatus: UserBookStatus) => void
   onToggleFavorite: (id: string) => void
   onRemove: (id: string) => void
+  onOpenReview?: (item: UserBook) => void
 }
 
 const statusConfig: Record<
@@ -59,6 +62,13 @@ const statusConfig: Record<
     border: 'border-slate-700',
     icon: XCircle,
   },
+  in_collection: {
+    label: 'No Acervo',
+    bg: 'bg-teal-500/10',
+    text: 'text-teal-400',
+    border: 'border-teal-500/20',
+    icon: Archive,
+  },
 }
 
 export function LibraryBookCard({
@@ -68,6 +78,7 @@ export function LibraryBookCard({
   onChangeStatus,
   onToggleFavorite,
   onRemove,
+  onOpenReview,
 }: LibraryBookCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const currentConfig = statusConfig[item.status] || statusConfig.want_to_read
@@ -171,6 +182,21 @@ export function LibraryBookCard({
               Ajustar
             </button>
           </div>
+        ) : item.status === 'read' ? (
+          <div className="flex-1 flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-500">
+              {item.book.page_count} páginas
+            </span>
+            {onOpenReview && (
+              <button
+                onClick={() => onOpenReview(item)}
+                className="py-1.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-xs font-semibold transition cursor-pointer flex items-center space-x-1.5"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>Avaliar</span>
+              </button>
+            )}
+          </div>
         ) : (
           <span className="text-xs text-slate-500">
             {item.book.page_count} páginas
@@ -237,6 +263,19 @@ export function LibraryBookCard({
                   </button>
                 )}
 
+                {item.status !== 'in_collection' && (
+                  <button
+                    onClick={() => {
+                      onChangeStatus(item, 'in_collection')
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2"
+                  >
+                    <Archive className="w-3.5 h-3.5 text-teal-400" />
+                    <span>No Acervo</span>
+                  </button>
+                )}
+
                 {item.status !== 'paused' && (
                   <button
                     onClick={() => {
@@ -248,6 +287,22 @@ export function LibraryBookCard({
                     <Pause className="w-3.5 h-3.5 text-amber-400" />
                     <span>Pausar Leitura</span>
                   </button>
+                )}
+
+                {onOpenReview && (
+                  <>
+                    <div className="border-t border-slate-800 my-1" />
+                    <button
+                      onClick={() => {
+                        onOpenReview(item)
+                        setShowMenu(false)
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg text-amber-300 hover:bg-amber-500/10 transition flex items-center space-x-2"
+                    >
+                      <Star className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Avaliações</span>
+                    </button>
+                  </>
                 )}
 
                 <div className="border-t border-slate-800 my-1" />

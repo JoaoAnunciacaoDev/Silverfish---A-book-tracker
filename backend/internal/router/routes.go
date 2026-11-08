@@ -48,6 +48,17 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		api.POST("/books", middleware.RequireAuth(), handler.CreateBookHandler)
 		api.POST("/books/import", middleware.RequireAuth(), handler.ImportBookHandler)
 
+		// Avaliações de Livros
+		api.GET("/books/:id/reviews", handler.ListBookReviewsHandler)
+		api.POST("/books/:id/reviews", middleware.RequireAuth(), handler.CreateBookReviewHandler)
+		reviews := api.Group("/reviews")
+		reviews.Use(middleware.RequireAuth())
+		{
+			reviews.GET("/me", handler.ListMyReviewsHandler)
+			reviews.PUT("/:id", handler.UpdateReviewHandler)
+			reviews.DELETE("/:id", handler.DeleteReviewHandler)
+		}
+
 		// Biblioteca Pessoal (Estante do Usuário - Etapa 6)
 		library := api.Group("/library")
 		library.Use(middleware.RequireAuth())
@@ -77,6 +88,14 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			goals.PUT("", handler.UpdateGoalHandler)
 			goals.GET("/streak", handler.GetStreakHandler)
 			goals.GET("/history", handler.GetGoalHistoryHandler)
+		}
+
+		// Estatísticas e Dashboard (Fase 2)
+		stats := api.Group("/stats")
+		stats.Use(middleware.RequireAuth())
+		{
+			stats.GET("/dashboard", handler.GetDashboardStatsHandler)
+			stats.GET("/heatmap", handler.GetHeatmapHandler)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 import type { Book } from './book'
 
-export type UserBookStatus = 'want_to_read' | 'reading' | 'read' | 'paused' | 'abandoned'
+export type UserBookStatus = 'want_to_read' | 'reading' | 'read' | 'paused' | 'abandoned' | 'in_collection'
 
 export interface UserBook {
   id: string
@@ -23,6 +23,7 @@ export interface LibrarySummary {
   read: number
   paused: number
   abandoned: number
+  in_collection: number
   favorites: number
 }
 

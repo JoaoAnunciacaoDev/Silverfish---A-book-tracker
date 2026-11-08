@@ -100,11 +100,11 @@ export function AddToLibraryModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-slate-300">Escolha a Categoria</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => setStatus('want_to_read')}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
+                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
                   status === 'want_to_read'
                     ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
                     : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
@@ -117,7 +117,7 @@ export function AddToLibraryModal({
               <button
                 type="button"
                 onClick={() => setStatus('reading')}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
+                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
                   status === 'reading'
                     ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
                     : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
@@ -130,7 +130,7 @@ export function AddToLibraryModal({
               <button
                 type="button"
                 onClick={() => setStatus('read')}
-                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
+                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
                   status === 'read'
                     ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
                     : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
@@ -138,6 +138,19 @@ export function AddToLibraryModal({
               >
                 <span>Já Lido</span>
                 {status === 'read' && <Check className="w-3.5 h-3.5" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatus('in_collection')}
+                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
+                  status === 'in_collection'
+                    ? 'bg-teal-500/10 border-teal-500/40 text-teal-400'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>No Acervo</span>
+                {status === 'in_collection' && <Check className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
