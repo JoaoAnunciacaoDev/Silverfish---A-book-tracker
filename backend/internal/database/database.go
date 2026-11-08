@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/config"
 	"gorm.io/driver/postgres"
@@ -10,7 +11,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Conecta ao banco de dados usando as configurações fornecidas e retorna uma instância do GORM DB.
+// Connect conecta ao banco de dados usando as configurações fornecidas e retorna uma instância do GORM DB.
 func Connect(cfg *config.Config) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 
@@ -35,5 +36,13 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("falha ao conectar ao banco de dados (%s): %w", cfg.DBDriver, err)
 	}
 
+	// SQLite não ativa chaves estrangeiras por padrão; habilitamos explicitamente
+	if cfg.DBDriver == "sqlite" {
+		if err := db.Exec("PRAGMA foreign_keys = ON;").Error; err != nil {
+			return nil, fmt.Errorf("falha ao habilitar foreign keys no sqlite: %w", err)
+		}
+	}
+
+	log.Printf("Conectado ao banco de dados com sucesso (%s)", cfg.DBDriver)
 	return db, nil
 }

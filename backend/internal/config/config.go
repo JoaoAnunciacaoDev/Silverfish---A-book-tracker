@@ -22,7 +22,7 @@ func Load() *Config {
 		log.Println("Aviso: arquivo .env não encontrado, lendo variáveis do sistema.")
 	}
 
-	return &Config{
+	cfg := &Config{
 		Port:          getEnv("PORT", "8080"),
 		Env:           getEnv("ENV", "development"),
 		DBDriver:      getEnv("DB_DRIVER", "sqlite"),
@@ -30,6 +30,15 @@ func Load() *Config {
 		SessionSecret: getEnv("SESSION_SECRET", "silverfish-secret-key-12345"),
 		FrontendURL:   getEnv("FRONTEND_URL", "http://localhost:5173"),
 	}
+
+	// Validação estrita para ambiente de produção
+	if cfg.Env == "production" {
+		if cfg.SessionSecret == "silverfish-secret-key-12345" || len(cfg.SessionSecret) < 32 {
+			log.Fatal("ERRO DE SEGURANÇA: SESSION_SECRET obrigatório com no mínimo 32 caracteres em ambiente de produção!")
+		}
+	}
+
+	return cfg
 }
 
 // getEnv tenta conseguir as variáveis de ambiente, em caso de falha retorna um fallback.

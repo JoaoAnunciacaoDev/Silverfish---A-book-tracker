@@ -2,68 +2,34 @@ package main
 
 import (
 	"log"
-	"net/http"
-	"time"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/config"
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/database"
-	"github.com/gin-gonic/gin"
+	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/router"
 )
 
 func main() {
-	cfg := config.Load() // Carrega as configurações
+	// 1. Configurações
+	cfg := config.Load()
 
-	db, err := database.Connect(cfg) // Conecta ao banco de dados
+	// 2. Banco de dados (com suporte a SQLite e PostgreSQL + Foreign Keys ativadas)
+	db, err := database.Connect(cfg)
 	if err != nil {
 		log.Fatalf("Erro ao inicializar banco de dados: %v", err)
 	}
 
-	_ = db // Use a instância do banco de dados conforme necessário
-
-	if cfg.Env == "production" {
-		gin.SetMode(gin.ReleaseMode) // Define o modo de produção para o Gin
+	// 3. Executa as Migrações SQL embutidas diretamente no binário (embed.FS)
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Erro ao obter instância sql.DB: %v", err)
 	}
 
-	r := gin.Default()
-
-	// Middleware de CORS
-	r.Use(
-		func(c *gin.Context) {
-			origin := c.Request.Header.Get("Origin")
-
-			if origin == cfg.FrontendURL || cfg.Env == "development" {
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-				c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, "+
-					"Accept-Encoding, X_CSRF-Token, Authorization, accept, origin, Cache-Caontrol, X-Requested-With")
-				c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
-			}
-
-			if c.Request.Method == "OPTIONS" {
-				c.AbortWithStatus(http.StatusNoContent)
-				return
-			}
-
-			c.Next()
-		},
-	)
-
-	r.GET("/api/health",
-		func(c *gin.Context) {
-			c.JSON(
-				http.StatusOK,
-				gin.H{
-					"status":    "ok",
-					"service":   "silverfish-api",
-					"timestamp": time.Now().UTC().Format(time.RFC3339),
-					"database":  cfg.DBDriver,
-				},
-			)
-		},
-	)
-
-	log.Printf("Servidor rodando em http://localhost:%s", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Erro ao iniciar o servidor: %v", err)
+	if err := database.RunMigrations(cfg.DBDriver, sqlDB); err != nil {
+		log.Fatalf("Erro ao executar migrações: %v", err)
 	}
+
+	log.Println("Tabelas sincronizadas com sucesso via migrations embutidas!")
+
+	// 4. Inicializa o roteador e roda o servidor (estilo Go-Talent-Hub)
+	router.Initialize(cfg, db)
 }
