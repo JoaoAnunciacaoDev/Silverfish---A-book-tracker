@@ -42,9 +42,10 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			})
 		}
 
-		// Próximos módulos que criaremos na Etapa 5:
-		// api.GET("/books", handler.ListBooksHandler)
-		// api.POST("/books", handler.CreateBookHandler)
-		// api.GET("/books/:id", handler.ShowBookHandler)
+		api.GET("/books", handler.ListBooksHandler)
+		api.GET("/books/:id", handler.ShowBookHandler)
+		api.GET("/books/search-external", handler.SearchExternalBooksHandler)
+		api.POST("/books", middleware.RequireAuth(), handler.CreateBookHandler)
+		api.POST("/books/import", middleware.RequireAuth(), handler.ImportBookHandler)
 	}
 }

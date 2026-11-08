@@ -3,7 +3,9 @@ package handler
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/schemas"
@@ -11,6 +13,22 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type LoginRequest struct {
+	EmailOrUsername string `json:"email_or_username"`
+	Password        string `json:"password"`
+}
+
+func (r *LoginRequest) Validate() error {
+	r.EmailOrUsername = strings.ToLower(strings.TrimSpace(r.EmailOrUsername))
+	if r.EmailOrUsername == "" {
+		return errors.New("email ou nome de usuário é obrigatório")
+	}
+	if r.Password == "" {
+		return errors.New("senha é obrigatória")
+	}
+	return nil
+}
 
 func LoginHandler(c *gin.Context) {
 	request := LoginRequest{}

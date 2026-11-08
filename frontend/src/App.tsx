@@ -7,7 +7,6 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Navbar Superior */}
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -37,10 +36,8 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* Conteúdo Principal */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-6">
-        {/* Banner de Boas-vindas */}
-        <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/20 rounded-3xl p-6 sm:p-8 relative overflow-hidden">
+        <div className="bg-linear-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/20 rounded-3xl p-6 sm:p-8 relative overflow-hidden">
           <div className="relative z-10 space-y-2">
             <div className="inline-flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-500/20">
               <Sparkles className="w-3.5 h-3.5" />
@@ -56,7 +53,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Card de Informações da Sessão */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
             <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
@@ -79,7 +75,7 @@ function Dashboard() {
               <BookOpen className="w-4 h-4 text-emerald-400" />
               <span>Próximo Passo</span>
             </div>
-            <p className="text-sm text-emerald-400 font-medium">Etapa 5: Catálogo de Livros 📚</p>
+            <p className="text-sm text-emerald-400 font-medium">Etapa 5: Catálogo de Livros</p>
           </div>
         </div>
       </main>
