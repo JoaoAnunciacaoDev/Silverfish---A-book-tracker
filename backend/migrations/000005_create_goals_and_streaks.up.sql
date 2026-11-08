@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS daily_goals (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    daily_page_target INTEGER NOT NULL DEFAULT 20,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS goal_history (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    date DATE NOT NULL,
+    pages_read INTEGER NOT NULL DEFAULT 0,
+    target INTEGER NOT NULL DEFAULT 20,
+    met BOOLEAN NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_goal_history_user_date ON goal_history(user_id, date);

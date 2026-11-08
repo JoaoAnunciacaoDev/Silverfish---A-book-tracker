@@ -58,5 +58,25 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			library.DELETE("/:id", handler.DeleteLibraryBookHandler)
 			library.PATCH("/:id/favorite", handler.ToggleFavoriteHandler)
 		}
+
+		// Sessões de Leitura (Etapa 7)
+		sessions := api.Group("/reading-sessions")
+		sessions.Use(middleware.RequireAuth())
+		{
+			sessions.POST("", handler.CreateReadingSessionHandler)
+			sessions.GET("", handler.ListReadingSessionsHandler)
+			sessions.GET("/today", handler.TodayReadingSummaryHandler)
+			sessions.DELETE("/:id", handler.DeleteReadingSessionHandler)
+		}
+
+		// Metas Diárias e Streaks (Etapa 8)
+		goals := api.Group("/goals")
+		goals.Use(middleware.RequireAuth())
+		{
+			goals.GET("", handler.GetGoalHandler)
+			goals.PUT("", handler.UpdateGoalHandler)
+			goals.GET("/streak", handler.GetStreakHandler)
+			goals.GET("/history", handler.GetGoalHistoryHandler)
+		}
 	}
 }

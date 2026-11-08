@@ -8,6 +8,10 @@ import {
 import type { LibrarySummary, UserBook, UserBookStatus } from '@/types/library'
 import { LibraryBookCard } from './LibraryBookCard'
 import { UpdateProgressModal } from './UpdateProgressModal'
+import { LogSessionModal } from '@/features/reading/LogSessionModal'
+import { ReadingHistoryModal } from '@/features/reading/ReadingHistoryModal'
+import { DailyGoalWidget } from '@/features/goals/DailyGoalWidget'
+import { StreakWidget } from '@/features/goals/StreakWidget'
 import {
   BookMarked,
   BookOpen,
@@ -15,6 +19,7 @@ import {
   Clock,
   Compass,
   Heart,
+  History,
   Library,
   Loader2,
   Pause,
@@ -40,6 +45,9 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [selectedBookForProgress, setSelectedBookForProgress] = useState<UserBook | null>(null)
+  const [selectedBookForSession, setSelectedBookForSession] = useState<UserBook | null>(null)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [goalRefreshKey, setGoalRefreshKey] = useState(0)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const showToast = (msg: string) => {
@@ -80,7 +88,17 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   const handleUpdateProgress = async (id: string, newPage: number) => {
     const res = await updateLibraryBook(id, { current_page: newPage })
     setItems((prev) => prev.map((item) => (item.id === id ? res.item : item)))
-    showToast(`Progresso de "${res.item.book.title}" atualizado para pág. ${newPage}!`)
+    showToast(`Progresso de "${res.item.book.title}" atualizado para pagina ${newPage}`)
+    setGoalRefreshKey((k) => k + 1)
+    fetchLibrary()
+  }
+
+  const handleSessionLogged = (session: { user_book: UserBook; pages_read: number }) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === session.user_book.id ? session.user_book : i))
+    )
+    showToast(`Sessao registrada: +${session.pages_read} paginas lidas`)
+    setGoalRefreshKey((k) => k + 1)
     fetchLibrary()
   }
 
@@ -88,7 +106,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
     try {
       const res = await updateLibraryBook(item.id, { status: newStatus })
       setItems((prev) => prev.map((i) => (i.id === item.id ? res.item : i)))
-      showToast(`"${item.book.title}" movido para nova categoria!`)
+      showToast(`"${item.book.title}" movido para nova categoria`)
       fetchLibrary()
     } catch {
       alert('Erro ao atualizar status do livro')
@@ -101,7 +119,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       setItems((prev) =>
         prev.map((i) => (i.id === id ? { ...i, favorite: res.favorite } : i))
       )
-      showToast(res.favorite ? 'Adicionado aos favoritos ❤️' : 'Removido dos favoritos')
+      showToast(res.favorite ? 'Adicionado aos favoritos' : 'Removido dos favoritos')
       fetchLibrary()
     } catch {
       alert('Erro ao alternar favorito')
@@ -129,43 +147,59 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
         </div>
       )}
 
-      {/* Header com métricas rápidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
-            <BookMarked className="w-4 h-4 text-emerald-400" />
-            <span>Na Estante</span>
+      {/* Widgets de Metas e Streaks (Etapa 8) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DailyGoalWidget refreshTrigger={goalRefreshKey} />
+        <StreakWidget refreshTrigger={goalRefreshKey} />
+      </div>
+
+      {/* Header com métricas rápidas e atalho para histórico de sessões */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+            <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
+              <BookMarked className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Na Estante</span>
+            </div>
+            <p className="text-xl font-bold text-white">{summary.total}</p>
           </div>
-          <p className="text-2xl font-bold text-white">{summary.total}</p>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+            <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
+              <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Lendo</span>
+            </div>
+            <p className="text-xl font-bold text-emerald-400">{summary.reading}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+            <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Concluidos</span>
+            </div>
+            <p className="text-xl font-bold text-indigo-400">{summary.read}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+            <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
+              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+              <span>Favoritos</span>
+            </div>
+            <p className="text-xl font-bold text-rose-400">{summary.favorites}</p>
+          </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
-            <BookOpen className="w-4 h-4 text-emerald-400" />
-            <span>Lendo Agora</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-400">{summary.reading}</p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
-            <CheckCircle2 className="w-4 h-4 text-indigo-400" />
-            <span>Livros Lidos</span>
-          </div>
-          <p className="text-2xl font-bold text-indigo-400">{summary.read}</p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center space-x-2 text-slate-400 text-xs font-semibold">
-            <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-            <span>Favoritos</span>
-          </div>
-          <p className="text-2xl font-bold text-rose-400">{summary.favorites}</p>
-        </div>
+        <button
+          onClick={() => setIsHistoryOpen(true)}
+          className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer self-start sm:self-center"
+        >
+          <History className="w-4 h-4 text-emerald-400" />
+          <span>Historico de Sessoes</span>
+        </button>
       </div>
 
       {/* Filtros por Abas e Busca Interna */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
         <div className="flex items-center space-x-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <button
             onClick={() => setActiveFilter('all')}
@@ -265,7 +299,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
             <p className="text-sm text-slate-400 max-w-sm mx-auto">
               {searchQuery
                 ? `Nenhum livro corresponde a "${searchQuery}".`
-                : 'Explore o acervo de livros e comece a adicionar suas leituras!'}
+                : 'Explore o acervo de livros e comece a adicionar suas leituras.'}
             </p>
           </div>
           <button
@@ -283,6 +317,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
               key={item.id}
               item={item}
               onUpdateProgress={(book) => setSelectedBookForProgress(book)}
+              onLogSession={(book) => setSelectedBookForSession(book)}
               onChangeStatus={handleChangeStatus}
               onToggleFavorite={handleToggleFavorite}
               onRemove={handleRemove}
@@ -297,6 +332,24 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
         isOpen={Boolean(selectedBookForProgress)}
         onClose={() => setSelectedBookForProgress(null)}
         onUpdate={handleUpdateProgress}
+      />
+
+      {/* Modal de Registrar Sessao de Leitura (Etapa 7) */}
+      <LogSessionModal
+        item={selectedBookForSession}
+        isOpen={Boolean(selectedBookForSession)}
+        onClose={() => setSelectedBookForSession(null)}
+        onSuccess={handleSessionLogged}
+      />
+
+      {/* Modal de Historico de Sessoes (Etapa 7) */}
+      <ReadingHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onSessionDeleted={() => {
+          fetchLibrary()
+          setGoalRefreshKey((k) => k + 1)
+        }}
       />
     </div>
   )

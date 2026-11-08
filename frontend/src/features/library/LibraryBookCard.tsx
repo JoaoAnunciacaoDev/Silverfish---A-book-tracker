@@ -14,6 +14,7 @@ import { useState } from 'react'
 interface LibraryBookCardProps {
   item: UserBook
   onUpdateProgress: (item: UserBook) => void
+  onLogSession?: (item: UserBook) => void
   onChangeStatus: (item: UserBook, newStatus: UserBookStatus) => void
   onToggleFavorite: (id: string) => void
   onRemove: (id: string) => void
@@ -63,6 +64,7 @@ const statusConfig: Record<
 export function LibraryBookCard({
   item,
   onUpdateProgress,
+  onLogSession,
   onChangeStatus,
   onToggleFavorite,
   onRemove,
@@ -154,12 +156,21 @@ export function LibraryBookCard({
       {/* Ações inferiores */}
       <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2 relative">
         {item.status === 'reading' ? (
-          <button
-            onClick={() => onUpdateProgress(item)}
-            className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 text-xs font-medium transition cursor-pointer text-center"
-          >
-            Atualizar Página
-          </button>
+          <div className="flex-1 flex items-center space-x-1.5">
+            <button
+              onClick={() => onLogSession ? onLogSession(item) : onUpdateProgress(item)}
+              className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer text-center"
+            >
+              Registrar Leitura
+            </button>
+            <button
+              onClick={() => onUpdateProgress(item)}
+              className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition cursor-pointer text-center"
+              title="Ajuste direto de página"
+            >
+              Ajustar
+            </button>
+          </div>
         ) : (
           <span className="text-xs text-slate-500">
             {item.book.page_count} páginas
