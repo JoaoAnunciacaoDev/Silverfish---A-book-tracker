@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/config"
 	"gorm.io/driver/postgres"
@@ -10,6 +11,15 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// SanitizePostgresURL limpa parâmetros conflitantes gerados automaticamente por provedores como o Neon
+func SanitizePostgresURL(rawURL string) string {
+	cleaned := strings.ReplaceAll(rawURL, "&channel_binding=require", "")
+	cleaned = strings.ReplaceAll(cleaned, "channel_binding=require&", "")
+	cleaned = strings.ReplaceAll(cleaned, "?channel_binding=require", "?")
+	cleaned = strings.ReplaceAll(cleaned, "-pooler.", ".")
+	return strings.TrimRight(cleaned, "?&")
+}
 
 // Connect conecta ao banco de dados usando as configurações fornecidas e retorna uma instância do GORM DB.
 func Connect(cfg *config.Config) (*gorm.DB, error) {
@@ -19,7 +29,8 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 	case "sqlite":
 		dialector = sqlite.Open(cfg.DBSource)
 	case "postgres":
-		dialector = postgres.Open(cfg.DBSource)
+		cleanSource := SanitizePostgresURL(cfg.DBSource)
+		dialector = postgres.Open(cleanSource)
 	default:
 		return nil, fmt.Errorf("driver de banco de dados não suportado: %s", cfg.DBDriver)
 	}

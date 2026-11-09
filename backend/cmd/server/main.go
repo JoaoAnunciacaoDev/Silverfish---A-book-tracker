@@ -29,11 +29,11 @@ func main() {
 		log.Fatalf("Erro ao obter instância sql.DB: %v", err)
 	}
 
-	if err := database.RunMigrations(cfg.DBDriver, sqlDB); err != nil {
-		log.Fatalf("Erro ao executar migrações: %v", err)
+	if err := database.RunMigrations(cfg.DBDriver, cfg.DBSource, sqlDB); err != nil {
+		log.Printf("Aviso ao executar migrações: %v", err)
+	} else {
+		log.Println("Tabelas sincronizadas com sucesso via migrations embutidas!")
 	}
-
-	log.Println("Tabelas sincronizadas com sucesso via migrations embutidas!")
 
 	// 4. Inicializa o roteador e roda o servidor (estilo Go-Talent-Hub)
 	router.Initialize(cfg, db)

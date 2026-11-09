@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react'
+import { BookOpen, LogIn, UserPlus, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from './AuthContext'
 import { Footer } from '@/components/layout/Footer'
 
@@ -12,12 +12,14 @@ export function AuthPage() {
   // Formulário Login
   const [loginTarget, setLoginTarget] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
 
   // Formulário Cadastro
   const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [registerPassword, setRegisterPassword] = useState('')
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -119,14 +121,25 @@ export function AuthPage() {
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Senha
               </label>
-              <input
-                type="password"
-                required
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition text-sm"
-              />
+              <div className="relative">
+                <input
+                  type={showLoginPassword ? 'text' : 'password'}
+                  required
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-4 pr-11 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition p-1 cursor-pointer"
+                  title={showLoginPassword ? 'Ocultar senha' : 'Ver senha'}
+                  aria-label={showLoginPassword ? 'Ocultar senha' : 'Ver senha'}
+                >
+                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
@@ -182,15 +195,26 @@ export function AuthPage() {
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Senha (mínimo 8 caracteres, com maiúscula e número)
               </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={registerPassword}
-                onChange={(e) => setRegisterPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition text-sm"
-              />
+              <div className="relative">
+                <input
+                  type={showRegisterPassword ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-4 pr-11 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition p-1 cursor-pointer"
+                  title={showRegisterPassword ? 'Ocultar senha' : 'Ver senha'}
+                  aria-label={showRegisterPassword ? 'Ocultar senha' : 'Ver senha'}
+                >
+                  {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
