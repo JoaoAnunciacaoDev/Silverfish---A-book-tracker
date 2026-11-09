@@ -15,6 +15,9 @@ type Config struct {
 	SessionSecret     string
 	FrontendURL       string
 	GoogleBooksAPIKey string
+	VapidPublicKey    string
+	VapidPrivateKey   string
+	VapidSubject      string
 }
 
 // Load lê o arquivo .env e retorna um ponteiro para a struct Config preenchida com as variáveis de ambiente.
@@ -40,6 +43,9 @@ func Load() *Config {
 		SessionSecret:     getEnv("SESSION_SECRET", "silverfish-secret-key-12345"),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:5173"),
 		GoogleBooksAPIKey: getEnv("GOOGLE_BOOKS_API_KEY", ""),
+		VapidPublicKey:    getEnv("VAPID_PUBLIC_KEY", ""),
+		VapidPrivateKey:   getEnv("VAPID_PRIVATE_KEY", ""),
+		VapidSubject:      getEnv("VAPID_SUBJECT", "mailto:suporte@silverfish.app"),
 	}
 
 	// Validação estrita para ambiente de produção

@@ -4,10 +4,11 @@ import {
   updateNotificationSettings,
   getVapidPublicKey,
   subscribePush,
+  unsubscribePush,
   sendTestNotification,
 } from '@/api/notifications'
 import type { NotificationSettings } from '@/types/notifications'
-import { X, Bell, Clock, Flame, Check, AlertCircle, Smartphone } from 'lucide-react'
+import { X, Bell, BellOff, Clock, Flame, Check, AlertCircle, Smartphone } from 'lucide-react'
 
 interface NotificationSettingsModalProps {
   onClose: () => void
@@ -21,6 +22,7 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
     social_notifications_enabled: true,
   })
   const [activeDevices, setActiveDevices] = useState(0)
+  const [isDeviceSubscribed, setIsDeviceSubscribed] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isSubscribing, setIsSubscribing] = useState(false)
@@ -46,10 +48,51 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
         if (isMounted) setIsLoading(false)
       })
 
+    // Checa se este navegador específico já possui inscrição ativa no PushManager
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.pushManager.getSubscription())
+        .then((sub) => {
+          if (isMounted) {
+            setIsDeviceSubscribed(Boolean(sub))
+          }
+        })
+        .catch(() => {})
+    }
+
     return () => {
       isMounted = false
     }
   }, [])
+
+  const handleDisablePushInBrowser = async () => {
+    setIsSubscribing(true)
+    setFeedback(null)
+
+    try {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        const reg = await navigator.serviceWorker.ready
+        const sub = await reg.pushManager.getSubscription()
+        if (sub) {
+          const endpoint = sub.endpoint
+          await sub.unsubscribe()
+          await unsubscribePush(endpoint).catch(() => {})
+        }
+      }
+
+      setIsDeviceSubscribed(false)
+      setActiveDevices((prev) => Math.max(0, prev - 1))
+      setFeedback('Notificações desativadas com sucesso neste aparelho.')
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setFeedback(err.message)
+      } else {
+        setFeedback('Erro ao desativar notificações neste aparelho.')
+      }
+    } finally {
+      setIsSubscribing(false)
+    }
+  }
 
   const handleEnablePushInBrowser = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -75,7 +118,7 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
       // 2. Obtém chave pública VAPID do backend
       const { vapid_public_key } = await getVapidPublicKey()
 
-      // Converte VAPID base64 para Uint8Array
+      // Converte VAPID base64url para Uint8Array
       const padding = '='.repeat((4 - (vapid_public_key.length % 4)) % 4)
       const base64 = (vapid_public_key + padding).replace(/-/g, '+').replace(/_/g, '/')
       const rawData = window.atob(base64)
@@ -105,10 +148,15 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
         user_agent: navigator.userAgent,
       })
 
+      setIsDeviceSubscribed(true)
       setActiveDevices((prev) => prev + 1)
       setFeedback('Dispositivo ativado com sucesso para receber notificações!')
-    } catch (err: any) {
-      setFeedback(err.message || 'Erro ao habilitar notificações no navegador.')
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setFeedback(err.message)
+      } else {
+        setFeedback('Erro ao habilitar notificações no navegador.')
+      }
     } finally {
       setIsSubscribing(false)
     }
@@ -189,32 +237,39 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed">
-              Ative para receber lembretes de leitura mesmo com a aba fechada.
+              {isDeviceSubscribed
+                ? 'Este aparelho está ativo e configurado para receber alertas de leitura.'
+                : 'Ative para receber lembretes de leitura mesmo com a aba fechada.'}
             </p>
 
+            {browserPermission === 'denied' && (
+              <p className="text-[11px] text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl">
+                As notificações estão bloqueadas nas configurações do navegador. Clique no ícone de configurações ao lado da URL para permitir.
+              </p>
+            )}
+
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleEnablePushInBrowser}
-                disabled={isSubscribing || browserPermission === 'granted'}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                  browserPermission === 'granted'
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                }`}
-              >
-                {browserPermission === 'granted' ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    Permitido neste navegador
-                  </>
-                ) : (
-                  <>
-                    <Bell className="w-3.5 h-3.5" />
-                    {isSubscribing ? 'Solicitando...' : 'Ativar no Navegador'}
-                  </>
-                )}
-              </button>
+              {isDeviceSubscribed ? (
+                <button
+                  type="button"
+                  onClick={handleDisablePushInBrowser}
+                  disabled={isSubscribing}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <BellOff className="w-3.5 h-3.5" />
+                  {isSubscribing ? 'Desativando...' : 'Desativar neste Aparelho'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleEnablePushInBrowser}
+                  disabled={isSubscribing || browserPermission === 'denied'}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-white transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  {isSubscribing ? 'Ativando...' : 'Ativar neste Aparelho'}
+                </button>
+              )}
 
               <button
                 type="button"

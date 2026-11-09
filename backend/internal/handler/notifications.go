@@ -13,10 +13,13 @@ import (
 	"github.com/google/uuid"
 )
 
-// DefaultVapidPublicKey padrão para desenvolvimento local caso não esteja no .env
-const DefaultVapidPublicKey = "BFvG7Y8xT9KqW1m0Z5A8B4X7_mock_vapid_public_key_silverfish_reader"
+// DefaultVapidPublicKey padrão para desenvolvimento local (chave válida P-256 / secp256r1 de 65 bytes)
+const DefaultVapidPublicKey = "BNFzvsVDIdwqRo7OrIQagBEFJW8n8M1IqEKOjJqY2yZxn4FBahrsxumrKbqNmG8VIMcxPopJBml4sP4eYXRg6zw"
 
 func getVapidPublicKey() string {
+	if cfg != nil && cfg.VapidPublicKey != "" {
+		return cfg.VapidPublicKey
+	}
 	val := strings.TrimSpace(os.Getenv("VAPID_PUBLIC_KEY"))
 	if val != "" {
 		return val
