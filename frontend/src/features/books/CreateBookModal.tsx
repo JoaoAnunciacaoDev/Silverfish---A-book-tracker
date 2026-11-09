@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createBook } from '@/api/books'
 import type { Book as BookType, CreateBookInput } from '@/types/book'
 import { BookPlus, Loader2, X } from 'lucide-react'
@@ -7,11 +7,12 @@ interface CreateBookModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (newBook: BookType) => void
+  initialTitle?: string
 }
 
-export function CreateBookModal({ isOpen, onClose, onSuccess }: CreateBookModalProps) {
+export function CreateBookModal({ isOpen, onClose, onSuccess, initialTitle = '' }: CreateBookModalProps) {
   const [form, setForm] = useState<CreateBookInput>({
-    title: '',
+    title: initialTitle,
     author: '',
     page_count: 200,
     genre: '',
@@ -23,6 +24,12 @@ export function CreateBookModal({ isOpen, onClose, onSuccess }: CreateBookModalP
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isOpen && initialTitle) {
+      setForm((prev) => ({ ...prev, title: initialTitle }))
+    }
+  }, [isOpen, initialTitle])
 
   if (!isOpen) return null
 

@@ -222,15 +222,18 @@ export function BookCatalogPage() {
                 </p>
               </div>
 
-              {/* Dica amigável sobre títulos internacionais / traduzidos */}
+              {/* Dica amigável sobre títulos e gibis/mangás */}
               <div className="max-w-lg mx-auto bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-xs text-slate-400 text-left flex items-start space-x-3">
                 <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div className="space-y-1.5">
                   <p>
-                    <strong className="text-slate-200">Dica de busca:</strong> O catálogo mundial indexa principalmente títulos originais (por exemplo, <em>"Reality Is Broken"</em> para a obra de Jane McGonigal).
+                    <strong className="text-slate-200">Dica de busca:</strong> As bases de dados mundiais indexam principalmente livros comerciais com ISBN de livraria.
                   </p>
                   <p>
-                    Se o seu livro for uma edição brasileira ou independente, você pode cadastrá-lo diretamente:
+                    Revistas em quadrinhos mensais de banca (como gibis da Panini/Turma da Mônica Jovem) e edições raras ou independentes costumam não ter registro ISBN individual.
+                  </p>
+                  <p>
+                    Você pode cadastrar essa edição específica diretamente abaixo para adicioná-la à sua estante:
                   </p>
                 </div>
               </div>
@@ -335,6 +338,7 @@ export function BookCatalogPage() {
       {/* Modal de Cadastro Manual */}
       <CreateBookModal
         isOpen={isModalOpen}
+        initialTitle={activeQuery}
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleBookCreated}
       />

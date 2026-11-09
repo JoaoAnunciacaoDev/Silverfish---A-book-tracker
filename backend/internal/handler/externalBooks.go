@@ -120,14 +120,81 @@ func cleanISBN(s string) (string, bool) {
 	return "", false
 }
 
+// stripAccents normaliza caracteres acentuados para minúsculas sem acentos
+func stripAccents(s string) string {
+	replacer := strings.NewReplacer(
+		"á", "a", "à", "a", "ã", "a", "â", "a", "ä", "a",
+		"é", "e", "è", "e", "ê", "e", "ë", "e",
+		"í", "i", "ì", "i", "î", "i", "ï", "i",
+		"ó", "o", "ò", "o", "õ", "o", "ô", "o", "ö", "o",
+		"ú", "u", "ù", "u", "û", "u", "ü", "u",
+		"ç", "c", "ñ", "n",
+	)
+	return replacer.Replace(strings.ToLower(s))
+}
+
+// isRelevantResult verifica se o livro retornado tem relação genuína com a busca do usuário,
+// eliminando ruído/lixo de OCR de livros não relacionados (ex: revistas de super-heróis ao buscar Turma da Mônica).
+func isRelevantResult(item ExternalBookItem, query string) bool {
+	cleanQuery := stripAccents(query)
+	cleanTitle := stripAccents(item.Title)
+	cleanAuthor := stripAccents(item.Author)
+	cleanDesc := stripAccents(item.Description)
+
+	stopwords := map[string]bool{
+		"de": true, "da": true, "do": true, "das": true, "dos": true,
+		"em": true, "no": true, "na": true, "nos": true, "nas": true,
+		"por": true, "para": true, "com": true, "sem": true,
+		"um": true, "uma": true, "uns": true, "umas": true,
+		"o": true, "a": true, "os": true, "as": true, "e": true,
+		"livro": true, "volume": true, "edicao": true,
+	}
+
+	rawWords := strings.Fields(cleanQuery)
+	var meaningfulWords []string
+	for _, w := range rawWords {
+		clean := strings.Trim(w, "#º°.,-()\":;'!?")
+		if len(clean) >= 3 && !stopwords[clean] {
+			meaningfulWords = append(meaningfulWords, clean)
+		}
+	}
+
+	if len(meaningfulWords) == 0 {
+		return true
+	}
+
+	matchedCount := 0
+	for _, w := range meaningfulWords {
+		if strings.Contains(cleanTitle, w) || strings.Contains(cleanAuthor, w) {
+			matchedCount++
+		}
+	}
+
+	// Para buscas com 3 ou mais palavras (ex: "turma da monica jovem 50"),
+	// exige que pelo menos 2 palavras significativas estejam no título ou no autor.
+	if len(meaningfulWords) >= 3 {
+		if matchedCount >= 2 {
+			return true
+		}
+		// Se bater pelo menos 1 palavra no título/autor e a frase inteira constar na descrição
+		if matchedCount >= 1 && strings.Contains(cleanDesc, cleanQuery) {
+			return true
+		}
+		return false
+	}
+
+	// Para buscas curtas (1 ou 2 palavras), pelo menos 1 deve estar no título ou autor
+	return matchedCount >= 1
+}
+
 // rankSearchResults reordena os resultados priorizando edições específicas, números de volume e termos exatos
 func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookItem {
 	if len(items) <= 1 {
 		return items
 	}
 
-	lowerQuery := strings.ToLower(query)
-	queryWords := strings.Fields(lowerQuery)
+	cleanQuery := stripAccents(query)
+	queryWords := strings.Fields(cleanQuery)
 	var numbers []string
 	for _, w := range queryWords {
 		clean := strings.Trim(w, "#º°.,-()")
@@ -145,9 +212,9 @@ func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookIte
 	scored := make([]scoredItem, len(items))
 	for i, it := range items {
 		score := 0
-		lowerTitle := strings.ToLower(it.Title)
-		lowerDesc := strings.ToLower(it.Description)
-		lowerAuthor := strings.ToLower(it.Author)
+		cleanTitle := stripAccents(it.Title)
+		cleanDesc := stripAccents(it.Description)
+		cleanAuthor := stripAccents(it.Author)
 
 		// 1. Se o usuário buscou um número (ex: 50) e o livro contém esse número exato no título
 		for _, num := range numbers {
@@ -159,35 +226,35 @@ func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookIte
 				"(" + num + ")", "[" + num + "]",
 			}
 			for _, pat := range patterns {
-				if strings.Contains(lowerTitle, pat) {
+				if strings.Contains(cleanTitle, pat) {
 					hasNumberInTitle = true
 					break
 				}
 			}
 			if !hasNumberInTitle {
-				if strings.HasPrefix(lowerTitle, num+" ") || strings.HasSuffix(lowerTitle, " "+num) || lowerTitle == num {
+				if strings.HasPrefix(cleanTitle, num+" ") || strings.HasSuffix(cleanTitle, " "+num) || cleanTitle == num {
 					hasNumberInTitle = true
 				}
 			}
 
 			if hasNumberInTitle {
 				score += 200 // Prioridade máxima para a edição numérica desejada
-			} else if strings.Contains(lowerTitle, num) {
+			} else if strings.Contains(cleanTitle, num) {
 				score += 80
-			} else if strings.Contains(lowerDesc, num) {
+			} else if strings.Contains(cleanDesc, num) {
 				score += 20
 			}
 		}
 
 		// 2. Pontuação por presença das palavras da busca no título
 		for _, w := range queryWords {
-			if len(w) >= 3 && strings.Contains(lowerTitle, w) {
-				score += 15
+			if len(w) >= 3 && strings.Contains(cleanTitle, w) {
+				score += 20
 			}
 		}
 
 		// 3. Match de autor
-		if strings.Contains(lowerAuthor, lowerQuery) {
+		if strings.Contains(cleanAuthor, cleanQuery) {
 			score += 40
 		}
 
@@ -501,10 +568,6 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		limit = 15
 	}
 
-	var results []ExternalBookItem
-	var totalItems int
-	var err error
-
 	googleKey := ""
 	if cfg != nil {
 		googleKey = cfg.GoogleBooksAPIKey
@@ -512,32 +575,61 @@ func SearchExternalBooksHandler(c *gin.Context) {
 
 	log.Printf("[BUSCA EXTERNA] Iniciando busca por '%s' (página %d) | Google Books configurado: %v", q, page, googleKey != "")
 
+	var candidateResults []ExternalBookItem
+	var totalItems int
+
 	// 1. Tenta buscar no Google Books (prioridade para catálogo nacional)
-	results, totalItems, err = searchGoogleBooks(c.Request.Context(), q, page, limit, googleKey)
-	if err != nil {
-		log.Printf("[GOOGLE BOOKS] Erro na consulta: %v", err)
+	gbResults, gbTotal, gbErr := searchGoogleBooks(c.Request.Context(), q, page, limit, googleKey)
+	if gbErr != nil {
+		log.Printf("[GOOGLE BOOKS] Erro na consulta: %v", gbErr)
 	} else {
-		log.Printf("[GOOGLE BOOKS] Itens retornados: %d (Total estimado: %d)", len(results), totalItems)
+		log.Printf("[GOOGLE BOOKS] Itens crus retornados: %d (Total estimado: %d)", len(gbResults), gbTotal)
+		for _, it := range gbResults {
+			if isRelevantResult(it, q) {
+				candidateResults = append(candidateResults, it)
+			}
+		}
+		totalItems = len(candidateResults)
 	}
 
-	// 2. Se o Google Books falhar ou não retornar nenhum resultado, faz fallback para a Open Library
-	if err != nil || len(results) == 0 {
-		log.Printf("[FALLBACK] Acionando busca na Open Library para '%s'...", q)
+	// 2. Se o Google Books retornou poucos ou nenhum resultado relevante (< limit),
+	// consulta a Open Library para complementar com acervo comunitário (gibis, quadrinhos, mangás e edições alternativas)
+	if len(candidateResults) < limit {
+		log.Printf("[BUSCA COMPLEMENTAR] Consultando Open Library para '%s' (relevantes até agora: %d)...", q, len(candidateResults))
 		olResults, olTotal, olErr := searchOpenLibrary(c.Request.Context(), q, page, limit)
 		if olErr == nil && len(olResults) > 0 {
-			results = olResults
-			totalItems = olTotal
-			err = nil
-			log.Printf("[OPEN LIBRARY] Sucesso! Itens retornados: %d", len(results))
+			for _, it := range olResults {
+				if isRelevantResult(it, q) {
+					// Evita duplicatas com livros já adicionados do Google Books
+					isDuplicate := false
+					for _, existing := range candidateResults {
+						if (existing.ISBN != "" && it.ISBN != "" && existing.ISBN == it.ISBN) ||
+							(strings.EqualFold(stripAccents(existing.Title), stripAccents(it.Title)) &&
+								strings.EqualFold(stripAccents(existing.Author), stripAccents(it.Author))) {
+							isDuplicate = true
+							break
+						}
+					}
+					if !isDuplicate {
+						candidateResults = append(candidateResults, it)
+					}
+				}
+			}
+			if totalItems < olTotal {
+				totalItems += len(candidateResults)
+			}
 		} else if olErr != nil {
 			log.Printf("[OPEN LIBRARY] Erro na consulta: %v", olErr)
 		}
 	}
 
-	if err != nil && len(results) == 0 {
+	if len(candidateResults) == 0 && gbErr != nil {
 		sendError(c, http.StatusBadGateway, "não foi possível consultar os provedores de livros no momento")
 		return
 	}
+
+	// Reordena os resultados estritamente relevantes pela melhor correspondência da query e edições numéricas
+	results := rankSearchResults(candidateResults, q)
 
 	// 3. Se for a primeira página, inclui obras cadastradas localmente no sistema que correspondam à busca
 	if page == 1 && db != nil {
