@@ -38,15 +38,36 @@ func ListLibraryHandler(c *gin.Context) {
 	}
 	offset := (page - 1) * limit
 
-	// 1. Calcula contagens resumo da estante do usuário
+	// 1. Calcula contagens resumo da estante do usuário em consultas otimizadas
 	var summary LibrarySummary
-	db.Model(&schemas.UserBook{}).Where("user_id = ?", user.ID).Count(&summary.Total)
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusReading).Count(&summary.Reading)
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusWantToRead).Count(&summary.WantToRead)
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusRead).Count(&summary.Read)
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusPaused).Count(&summary.Paused)
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusAbandoned).Count(&summary.Abandoned)
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusInCollection).Count(&summary.InCollection)
+	type statusTally struct {
+		Status string `gorm:"column:status"`
+		Total  int64  `gorm:"column:total"`
+	}
+	var tallies []statusTally
+	db.Model(&schemas.UserBook{}).
+		Select("status, COUNT(*) as total").
+		Where("user_id = ?", user.ID).
+		Group("status").
+		Scan(&tallies)
+
+	for _, t := range tallies {
+		summary.Total += t.Total
+		switch t.Status {
+		case schemas.StatusReading:
+			summary.Reading = t.Total
+		case schemas.StatusWantToRead:
+			summary.WantToRead = t.Total
+		case schemas.StatusRead:
+			summary.Read = t.Total
+		case schemas.StatusPaused:
+			summary.Paused = t.Total
+		case schemas.StatusAbandoned:
+			summary.Abandoned = t.Total
+		case schemas.StatusInCollection:
+			summary.InCollection = t.Total
+		}
+	}
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND favorite = true", user.ID).Count(&summary.Favorites)
 
 	// 2. Monta consulta filtrada

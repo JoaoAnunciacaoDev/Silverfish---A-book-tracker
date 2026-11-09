@@ -17,6 +17,7 @@ export function ReadingHistoryModal({
   const [sessions, setSessions] = useState<ReadingSession[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -38,7 +39,7 @@ export function ReadingHistoryModal({
       setSessions((prev) => prev.filter((s) => s.id !== id))
       onSessionDeleted?.()
     } catch {
-      alert('Erro ao excluir sessao')
+      setError('Falha ao excluir sessão de leitura')
     } finally {
       setDeletingId(null)
     }
@@ -61,6 +62,12 @@ export function ReadingHistoryModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {error && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
+            {error}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
           {isLoading ? (

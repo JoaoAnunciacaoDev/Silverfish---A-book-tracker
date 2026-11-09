@@ -113,7 +113,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       showToast(`"${item.book.title}" movido para nova categoria`)
       fetchLibrary()
     } catch {
-      alert('Erro ao atualizar status do livro')
+      showToast('Erro ao atualizar status do livro')
     }
   }
 
@@ -126,7 +126,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       showToast(res.favorite ? 'Adicionado aos favoritos' : 'Removido dos favoritos')
       fetchLibrary()
     } catch {
-      alert('Erro ao alternar favorito')
+      showToast('Erro ao alternar favorito')
     }
   }
 
@@ -137,7 +137,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       showToast('Livro removido da sua estante.')
       fetchLibrary()
     } catch {
-      alert('Erro ao remover livro da estante')
+      showToast('Erro ao remover livro da estante')
     }
   }
 

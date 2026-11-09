@@ -154,6 +154,12 @@ func (r *UpdateProfileRequest) Validate() error {
 			return errors.New("a biografia não pode ultrapassar 250 caracteres")
 		}
 	}
+	if r.AvatarURL != nil {
+		*r.AvatarURL = strings.TrimSpace(*r.AvatarURL)
+		if len([]rune(*r.AvatarURL)) > 1000 {
+			return errors.New("a URL do avatar não pode exceder 1.000 caracteres")
+		}
+	}
 	if r.Timezone != nil {
 		*r.Timezone = strings.TrimSpace(*r.Timezone)
 		if _, err := time.LoadLocation(*r.Timezone); err != nil {

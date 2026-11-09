@@ -59,7 +59,7 @@ export function ReviewModal({ item, isOpen, onClose, currentUserId }: ReviewModa
     } finally {
       setIsLoading(false)
     }
-  }, [item?.book?.id])
+  }, [item])
 
   useEffect(() => {
     if (isOpen && item) {

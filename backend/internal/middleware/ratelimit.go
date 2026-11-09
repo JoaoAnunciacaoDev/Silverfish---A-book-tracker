@@ -14,13 +14,13 @@ type client struct {
 	lastSeen time.Time
 }
 
-var (
-	clients = make(map[string]*client)
-	mu      sync.Mutex
-)
+// RateLimiter aplica controle de fluxo por IP usando o algoritmo Token Bucket.
+// Cada chamada a RateLimiter cria uma instância isolada para sua rota específica.
+func RateLimiter(r rate.Limit, burst int) gin.HandlerFunc {
+	clients := make(map[string]*client)
+	var mu sync.Mutex
 
-// Inicia rotina em background para limpar IPs inativos e evitar vazamento de memória
-func init() {
+	// Inicia rotina em background para limpar IPs inativos desta rota específica
 	go func() {
 		for {
 			time.Sleep(5 * time.Minute)
@@ -33,10 +33,7 @@ func init() {
 			mu.Unlock()
 		}
 	}()
-}
 
-// RateLimiter aplica controle de fluxo por IP usando o algoritmo Token Bucket
-func RateLimiter(r rate.Limit, burst int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 

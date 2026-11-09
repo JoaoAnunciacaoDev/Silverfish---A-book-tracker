@@ -52,6 +52,20 @@ func TestUpdateProfileRequest_Validate(t *testing.T) {
 			},
 			expectErr: false,
 		},
+		{
+			name: "invalido com avatar url acima de 1000 caracteres",
+			req: handler.UpdateProfileRequest{
+				AvatarURL: strPtr("https://example.com/" + strings.Repeat("a", 1001)),
+			},
+			expectErr: true,
+		},
+		{
+			name: "valido com avatar url normal",
+			req: handler.UpdateProfileRequest{
+				AvatarURL: strPtr("https://example.com/avatar.png"),
+			},
+			expectErr: false,
+		},
 	}
 
 	for _, tt := range tests {

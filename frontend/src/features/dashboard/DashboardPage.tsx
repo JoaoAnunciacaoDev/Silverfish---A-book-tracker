@@ -69,7 +69,10 @@ export function DashboardPage() {
     for (let i = 364; i >= 0; i--) {
       const d = new Date(today)
       d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split('T')[0]
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
       const data = activityMap.get(dateStr) || { pages: 0, sessions: 0 }
       days.push({
         dateStr,

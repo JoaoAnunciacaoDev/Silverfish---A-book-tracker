@@ -81,22 +81,57 @@ func GetFeedHandler(c *gin.Context) {
 	}
 
 	feedViews := make([]ActivityFeedView, 0, len(activities))
-	for _, act := range activities {
-		var likesCount int64
-		_ = db.Model(&schemas.ActivityLike{}).Where("activity_id = ?", act.ID).Count(&likesCount).Error
 
-		var userLikeCount int64
-		_ = db.Model(&schemas.ActivityLike{}).Where("activity_id = ? AND user_id = ?", act.ID, user.ID).Count(&userLikeCount).Error
+	if len(activities) > 0 {
+		actIDs := make([]string, len(activities))
+		for i, act := range activities {
+			actIDs[i] = act.ID
+		}
 
-		var commentsCount int64
-		_ = db.Model(&schemas.ActivityComment{}).Where("activity_id = ?", act.ID).Count(&commentsCount).Error
+		type ActCount struct {
+			ActivityID string `gorm:"column:activity_id"`
+			Total      int64  `gorm:"column:total"`
+		}
 
-		feedViews = append(feedViews, ActivityFeedView{
-			Activity:      act,
-			LikesCount:    likesCount,
-			HasLiked:      userLikeCount > 0,
-			CommentsCount: commentsCount,
-		})
+		var likeCounts []ActCount
+		_ = db.Model(&schemas.ActivityLike{}).
+			Select("activity_id, COUNT(*) as total").
+			Where("activity_id IN (?)", actIDs).
+			Group("activity_id").
+			Scan(&likeCounts).Error
+		likesMap := make(map[string]int64, len(likeCounts))
+		for _, lc := range likeCounts {
+			likesMap[lc.ActivityID] = lc.Total
+		}
+
+		var userLikes []string
+		_ = db.Model(&schemas.ActivityLike{}).
+			Where("activity_id IN (?) AND user_id = ?", actIDs, user.ID).
+			Pluck("activity_id", &userLikes).Error
+		userLikedMap := make(map[string]bool, len(userLikes))
+		for _, id := range userLikes {
+			userLikedMap[id] = true
+		}
+
+		var commentCounts []ActCount
+		_ = db.Model(&schemas.ActivityComment{}).
+			Select("activity_id, COUNT(*) as total").
+			Where("activity_id IN (?)", actIDs).
+			Group("activity_id").
+			Scan(&commentCounts).Error
+		commentsMap := make(map[string]int64, len(commentCounts))
+		for _, cc := range commentCounts {
+			commentsMap[cc.ActivityID] = cc.Total
+		}
+
+		for _, act := range activities {
+			feedViews = append(feedViews, ActivityFeedView{
+				Activity:      act,
+				LikesCount:    likesMap[act.ID],
+				HasLiked:      userLikedMap[act.ID],
+				CommentsCount: commentsMap[act.ID],
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -386,39 +421,63 @@ func GetLeaderboardHandler(c *gin.Context) {
 
 	var entries []LeaderboardEntry
 
+	type ParticipantScore struct {
+		UserID string `gorm:"column:user_id"`
+		Total  int64  `gorm:"column:total"`
+	}
+
+	bookCountsMap := make(map[string]int)
+	pageSumsMap := make(map[string]int)
+	historiesByUser := make(map[string][]schemas.GoalHistory)
+
+	switch criterion {
+	case "books":
+		startMonth := month + "-01 00:00:00"
+		endMonth := month + "-31 23:59:59"
+		var bookCounts []ParticipantScore
+		_ = db.Model(&schemas.UserBook{}).
+			Select("user_id, COUNT(*) as total").
+			Where("user_id IN (?) AND status = ? AND finished_at BETWEEN ? AND ?", participantIDs, schemas.StatusRead, startMonth, endMonth).
+			Group("user_id").
+			Scan(&bookCounts).Error
+		for _, bc := range bookCounts {
+			bookCountsMap[bc.UserID] = int(bc.Total)
+		}
+	case "streak":
+		var allHistories []schemas.GoalHistory
+		_ = db.Where("user_id IN (?)", participantIDs).Order("date DESC").Find(&allHistories).Error
+		for _, gh := range allHistories {
+			historiesByUser[gh.UserID] = append(historiesByUser[gh.UserID], gh)
+		}
+	default: // "pages"
+		monthStart := month + "-01"
+		monthEnd := month + "-31"
+		var pageSums []ParticipantScore
+		_ = db.Model(&schemas.ReadingSession{}).
+			Select("user_id, COALESCE(SUM(pages_read), 0) as total").
+			Where("user_id IN (?) AND read_at >= ? AND read_at <= ?", participantIDs, monthStart, monthEnd).
+			Group("user_id").
+			Scan(&pageSums).Error
+		for _, ps := range pageSums {
+			pageSumsMap[ps.UserID] = int(ps.Total)
+		}
+	}
+
 	for _, p := range participants {
 		score := 0
 		var label string
 
 		switch criterion {
 		case "books":
-			// Livros concluídos no mês
-			startMonth := month + "-01 00:00:00"
-			endMonth := month + "-31 23:59:59"
-			var booksCount int64
-			_ = db.Model(&schemas.UserBook{}).
-				Where("user_id = ? AND status = ? AND finished_at BETWEEN ? AND ?", p.ID, schemas.StatusRead, startMonth, endMonth).
-				Count(&booksCount).Error
-			score = int(booksCount)
+			score = bookCountsMap[p.ID]
 			label = "livros lidos"
-
 		case "streak":
-			// Streak atual
-			var historyList []schemas.GoalHistory
-			_ = db.Where("user_id = ?", p.ID).Order("date DESC").Find(&historyList).Error
 			todayP := getTodayInTimezone(p.Timezone)
-			currentStreak, _ := calculateStreaks(historyList, todayP)
+			currentStreak, _ := calculateStreaks(historiesByUser[p.ID], todayP)
 			score = currentStreak
 			label = "dias de ofensiva"
-
 		default: // "pages"
-			// Páginas lidas no mês
-			var totalPages int64
-			_ = db.Model(&schemas.ReadingSession{}).
-				Where("user_id = ? AND read_at LIKE ?", p.ID, month+"%").
-				Select("COALESCE(SUM(pages_read), 0)").
-				Scan(&totalPages).Error
-			score = int(totalPages)
+			score = pageSumsMap[p.ID]
 			label = "páginas lidas"
 		}
 

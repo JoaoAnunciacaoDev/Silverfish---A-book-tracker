@@ -8,6 +8,9 @@ export class ApiError extends Error {
   }
 }
 
+const RAW_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || ''
+const BASE_URL = RAW_BASE_URL.replace(/\/$/, '')
+
 export async function apiClient<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const config: RequestInit = {
     ...options,
@@ -19,7 +22,11 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
     credentials: 'include',
   }
 
-  const response = await fetch(endpoint, config)
+  const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
+    ? endpoint
+    : `${BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`
+
+  const response = await fetch(url, config)
 
   if (!response.ok) {
     let errorMessage = `Erro HTTP: ${response.status}`

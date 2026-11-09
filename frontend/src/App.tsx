@@ -10,6 +10,7 @@ import { AdminPage } from '@/features/admin/AdminPage'
 import { PrivacySettingsModal } from '@/features/social/PrivacySettingsModal'
 import { PatchNotesModal } from '@/features/patchNotes/PatchNotesModal'
 import { NotificationSettingsModal } from '@/features/notifications/NotificationSettingsModal'
+import { Footer } from '@/components/layout/Footer'
 import {
   BookOpen,
   Compass,
@@ -191,6 +192,11 @@ function MainLayout() {
           <BookCatalogPage />
         )}
       </main>
+
+      {/* Rodapé com créditos */}
+      <div className="pb-16 md:pb-0">
+        <Footer />
+      </div>
 
       {/* Barra de Navegação Inferior para Mobile (estilo App / PWA) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-1 flex items-center justify-around shadow-2xl">

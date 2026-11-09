@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getAdminDashboardStats, listAdminUsers, updateUserRole } from '@/api/admin'
 import {
   adminListAllPatchNotes,
@@ -52,9 +52,15 @@ export function AdminPage() {
   const [isPublished, setIsPublished] = useState(false)
   const [isSubmittingNote, setIsSubmittingNote] = useState(false)
   const [noteFeedback, setNoteFeedback] = useState<string | null>(null)
+  const [adminToast, setAdminToast] = useState<string | null>(null)
+
+  const showAdminToast = (msg: string) => {
+    setAdminToast(msg)
+    setTimeout(() => setAdminToast(null), 4000)
+  }
 
   // Carrega Visão Geral
-  const loadOverview = async () => {
+  const loadOverview = useCallback(async () => {
     setIsStatsLoading(true)
     try {
       const data = await getAdminDashboardStats()
@@ -64,10 +70,10 @@ export function AdminPage() {
     } finally {
       setIsStatsLoading(false)
     }
-  }
+  }, [])
 
   // Carrega Usuários
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setIsUsersLoading(true)
     try {
       const data = await listAdminUsers(1, 50, userSearchQuery, roleFilter)
@@ -78,10 +84,10 @@ export function AdminPage() {
     } finally {
       setIsUsersLoading(false)
     }
-  }
+  }, [userSearchQuery, roleFilter])
 
   // Carrega Patch Notes
-  const loadPatchNotes = async () => {
+  const loadPatchNotes = useCallback(async () => {
     setIsPatchNotesLoading(true)
     try {
       const data = await adminListAllPatchNotes()
@@ -91,13 +97,13 @@ export function AdminPage() {
     } finally {
       setIsPatchNotesLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     if (activeTab === 'overview') loadOverview()
     if (activeTab === 'users') loadUsers()
     if (activeTab === 'patchNotes') loadPatchNotes()
-  }, [activeTab, roleFilter])
+  }, [activeTab, loadOverview, loadUsers, loadPatchNotes])
 
   const handleToggleRole = async (userId: string, currentRole: 'USER' | 'SUPERUSER') => {
     const nextRole = currentRole === 'SUPERUSER' ? 'USER' : 'SUPERUSER'
@@ -108,8 +114,9 @@ export function AdminPage() {
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, role: nextRole } : u))
       )
+      showAdminToast(`Papel do usuário atualizado para ${nextRole}`)
     } catch (err: any) {
-      alert(err.message || 'Erro ao alterar papel do usuário')
+      showAdminToast(err.message || 'Erro ao alterar papel do usuário')
     }
   }
 
@@ -152,9 +159,10 @@ export function AdminPage() {
       await adminUpdatePatchNote(note.id, {
         is_published: !note.is_published,
       })
+      showAdminToast(note.is_published ? 'Nota despublicada' : 'Nota publicada com sucesso')
       loadPatchNotes()
     } catch (err: any) {
-      alert(err.message || 'Erro ao atualizar publicação')
+      showAdminToast(err.message || 'Erro ao atualizar publicação')
     }
   }
 
@@ -164,13 +172,22 @@ export function AdminPage() {
     try {
       await adminDeletePatchNote(id)
       setPatchNotes((prev) => prev.filter((n) => n.id !== id))
+      showAdminToast('Nota de versão excluída com sucesso')
     } catch (err: any) {
-      alert(err.message || 'Erro ao excluir nota')
+      showAdminToast(err.message || 'Erro ao excluir nota')
     }
   }
 
   return (
     <div className="space-y-6">
+      {/* Toast Feedback */}
+      {adminToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-indigo-600 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-2 animate-in fade-in slide-in-from-bottom-4">
+          <ShieldCheck className="w-5 h-5" />
+          <span className="text-sm font-medium">{adminToast}</span>
+        </div>
+      )}
+
       {/* Header do Painel Admin */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-slate-800">
         <div>

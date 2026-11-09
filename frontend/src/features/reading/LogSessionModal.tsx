@@ -67,7 +67,7 @@ export function LogSessionModal({
       setNotes('')
       setError(null)
     }
-  }, [activeBook?.id, isOpen])
+  }, [activeBook, isOpen])
 
   if (!isOpen || !activeBook) return null
 

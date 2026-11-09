@@ -245,57 +245,83 @@ func CheckAndUnlockAchievements(tx *gorm.DB, userID string) []schemas.Achievemen
 		unlockedMap[ua.AchievementCode] = true
 	}
 
-	// 1. Contagem de sessões
+	// Se o usuário já conquistou todas as insígnias disponíveis, retorna imediatamente
+	if len(unlockedMap) >= len(defaultAchievements) {
+		return nil
+	}
+
+	// Carrega dados sob demanda apenas para categorias que ainda possuem conquistas pendentes
 	var sessionCount int64
-	tx.Model(&schemas.ReadingSession{}).Where("user_id = ?", userID).Count(&sessionCount)
+	if !unlockedMap["first_session"] {
+		tx.Model(&schemas.ReadingSession{}).Where("user_id = ?", userID).Count(&sessionCount)
+	}
 
-	// 2. Total de páginas lidas
 	var totalPages int64
-	tx.Model(&schemas.ReadingSession{}).Where("user_id = ?", userID).Select("COALESCE(SUM(pages_read), 0)").Scan(&totalPages)
+	if !unlockedMap["pages_100"] || !unlockedMap["pages_500"] || !unlockedMap["pages_1000"] || !unlockedMap["pages_2500"] {
+		tx.Model(&schemas.ReadingSession{}).Where("user_id = ?", userID).Select("COALESCE(SUM(pages_read), 0)").Scan(&totalPages)
+	}
 
-	// 3. Livros concluídos
 	var booksReadCount int64
-	tx.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", userID, schemas.StatusRead).Count(&booksReadCount)
+	if !unlockedMap["first_book"] || !unlockedMap["books_5"] || !unlockedMap["books_10"] || !unlockedMap["books_25"] {
+		tx.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", userID, schemas.StatusRead).Count(&booksReadCount)
+	}
 
-	// 4. Livros na estante
 	var shelfCount int64
-	tx.Model(&schemas.UserBook{}).Where("user_id = ?", userID).Count(&shelfCount)
+	if !unlockedMap["shelf_10"] {
+		tx.Model(&schemas.UserBook{}).Where("user_id = ?", userID).Count(&shelfCount)
+	}
 
-	// 5. Avaliações feitas
 	var reviewCount int64
-	tx.Model(&schemas.BookReview{}).Where("user_id = ?", userID).Count(&reviewCount)
+	if !unlockedMap["first_review"] {
+		tx.Model(&schemas.BookReview{}).Where("user_id = ?", userID).Count(&reviewCount)
+	}
 
-	// 6. Sentimentos distintos
 	var feelingCount int64
-	tx.Model(&schemas.ReadingSession{}).Where("user_id = ? AND feeling IS NOT NULL AND feeling != ''", userID).Distinct("feeling").Count(&feelingCount)
+	if !unlockedMap["varied_feelings"] {
+		tx.Model(&schemas.ReadingSession{}).Where("user_id = ? AND feeling IS NOT NULL AND feeling != ''", userID).Distinct("feeling").Count(&feelingCount)
+	}
 
-	// 7. Sessão com mais de 100 páginas (Maratona)
 	var maxPagesSession int64
-	tx.Model(&schemas.ReadingSession{}).Where("user_id = ?", userID).Select("COALESCE(MAX(pages_read), 0)").Scan(&maxPagesSession)
+	if !unlockedMap["weekend_warrior"] {
+		tx.Model(&schemas.ReadingSession{}).Where("user_id = ?", userID).Select("COALESCE(MAX(pages_read), 0)").Scan(&maxPagesSession)
+	}
 
-	// 8. Leitura noturna (criada após as 22h local/UTC)
 	var nightOwlCount int64
-	var userSessions []schemas.ReadingSession
-	tx.Where("user_id = ?", userID).Find(&userSessions)
-	for _, s := range userSessions {
-		if s.CreatedAt.Hour() >= 22 || s.CreatedAt.Hour() <= 4 {
-			nightOwlCount = 1
-			break
+	if !unlockedMap["night_owl"] {
+		var user schemas.User
+		loc := time.UTC
+		if err := tx.Where("id = ?", userID).First(&user).Error; err == nil && user.Timezone != "" {
+			if l, lErr := time.LoadLocation(user.Timezone); lErr == nil {
+				loc = l
+			}
+		}
+
+		var recentSessions []schemas.ReadingSession
+		tx.Where("user_id = ?", userID).Order("created_at DESC").Limit(50).Find(&recentSessions)
+		for _, s := range recentSessions {
+			localHour := s.CreatedAt.In(loc).Hour()
+			if localHour >= 22 || localHour <= 4 {
+				nightOwlCount = 1
+				break
+			}
 		}
 	}
 
-	// 9. Gêneros distintos lidos
 	var distinctGenresCount int64
-	tx.Table("user_books").
-		Joins("JOIN books ON books.id = user_books.book_id").
-		Where("user_books.user_id = ? AND user_books.status = ? AND books.genre != ''", userID, schemas.StatusRead).
-		Distinct("books.genre").
-		Count(&distinctGenresCount)
+	if !unlockedMap["eclectic_reader"] {
+		tx.Table("user_books").
+			Joins("JOIN books ON books.id = user_books.book_id").
+			Where("user_books.user_id = ? AND user_books.status = ? AND books.genre != ''", userID, schemas.StatusRead).
+			Distinct("books.genre").
+			Count(&distinctGenresCount)
+	}
 
-	// 10. Melhor streak histórico
-	var historyList []schemas.GoalHistory
-	tx.Where("user_id = ?", userID).Order("date DESC").Find(&historyList)
-	_, bestStreak := calculateStreaks(historyList, time.Now().Format("2006-01-02"))
+	var bestStreak int
+	if !unlockedMap["streak_3"] || !unlockedMap["streak_7"] || !unlockedMap["streak_14"] || !unlockedMap["streak_30"] || !unlockedMap["streak_100"] {
+		var historyList []schemas.GoalHistory
+		tx.Where("user_id = ?", userID).Order("date DESC").Find(&historyList)
+		_, bestStreak = calculateStreaks(historyList, time.Now().Format("2006-01-02"))
+	}
 
 	qualifies := func(code string) bool {
 		switch code {

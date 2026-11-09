@@ -15,6 +15,11 @@ func LogoutHandler(c *gin.Context) {
 	}
 
 	isProd := cfg.Env == "production"
+	if isProd {
+		c.SetSameSite(http.SameSiteNoneMode)
+	} else {
+		c.SetSameSite(http.SameSiteLaxMode)
+	}
 	c.SetCookie(SessionCookieName, "", -1, "/", "", isProd, true)
 
 	sendSuccess(c, http.StatusOK, "Logout realizado com sucesso", nil)

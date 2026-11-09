@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BookOpen, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react'
 import { useAuth } from './AuthContext'
+import { Footer } from '@/components/layout/Footer'
 
 export function AuthPage() {
   const { login, register } = useAuth()
@@ -53,8 +54,8 @@ export function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4">
+      <div className="my-auto max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
         {/* Logo & Título */}
         <div className="text-center space-y-2">
           <div className="inline-flex p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20 mb-2">
@@ -200,6 +201,10 @@ export function AuthPage() {
             </button>
           </form>
         )}
+      </div>
+
+      <div className="w-full max-w-6xl mt-8">
+        <Footer />
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -35,6 +36,11 @@ func GetDashboardStatsHandler(c *gin.Context) {
 	currentMonth := now.Format("2006-01")
 	sevenDaysAgo := now.AddDate(0, 0, -6).Format("2006-01-02")
 
+	yearStart := currentYear + "-01-01"
+	yearEnd := currentYear + "-12-31"
+	monthStart := currentMonth + "-01"
+	monthEnd := currentMonth + "-31"
+
 	// 1. Livros lidos e lendo
 	var totalBooksRead int64
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusRead).Count(&totalBooksRead)
@@ -50,10 +56,10 @@ func GetDashboardStatsHandler(c *gin.Context) {
 	db.Model(&schemas.ReadingSession{}).Where("user_id = ?", user.ID).Select("COALESCE(SUM(pages_read), 0)").Scan(&totalPagesRead)
 
 	var yearPagesRead int64
-	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at LIKE ?", user.ID, currentYear+"%").Select("COALESCE(SUM(pages_read), 0)").Scan(&yearPagesRead)
+	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at >= ? AND read_at <= ?", user.ID, yearStart, yearEnd).Select("COALESCE(SUM(pages_read), 0)").Scan(&yearPagesRead)
 
 	var monthPagesRead int64
-	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at LIKE ?", user.ID, currentMonth+"%").Select("COALESCE(SUM(pages_read), 0)").Scan(&monthPagesRead)
+	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at >= ? AND read_at <= ?", user.ID, monthStart, monthEnd).Select("COALESCE(SUM(pages_read), 0)").Scan(&monthPagesRead)
 
 	var weekPagesRead int64
 	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at >= ?", user.ID, sevenDaysAgo).Select("COALESCE(SUM(pages_read), 0)").Scan(&weekPagesRead)
@@ -83,14 +89,40 @@ func GetDashboardStatsHandler(c *gin.Context) {
 		goalCompletionRate = (float64(metGoalDays) / float64(totalGoalDays)) * 100
 	}
 
-	// 6. Leituras mensais no ano corrente
-	var monthly []MonthlyReadingStat
+	// 6. Leituras mensais no ano corrente (portável para SQLite e PostgreSQL)
+	type rawSessionStat struct {
+		ReadAt    string `gorm:"column:read_at"`
+		PagesRead int64  `gorm:"column:pages_read"`
+	}
+	var yearSessions []rawSessionStat
 	db.Model(&schemas.ReadingSession{}).
-		Where("user_id = ? AND read_at LIKE ?", user.ID, currentYear+"%").
-		Select("SUBSTR(read_at, 1, 7) as month, COALESCE(SUM(pages_read), 0) as pages, COUNT(id) as sessions").
-		Group("SUBSTR(read_at, 1, 7)").
-		Order("month ASC").
-		Scan(&monthly)
+		Where("user_id = ? AND read_at >= ? AND read_at <= ?", user.ID, yearStart, yearEnd).
+		Select("read_at, pages_read").
+		Find(&yearSessions)
+
+	monthlyMap := make(map[string]*MonthlyReadingStat)
+	for _, s := range yearSessions {
+		if len(s.ReadAt) >= 7 {
+			m := s.ReadAt[:7]
+			if entry, ok := monthlyMap[m]; ok {
+				entry.Pages += s.PagesRead
+				entry.Sessions++
+			} else {
+				monthlyMap[m] = &MonthlyReadingStat{
+					Month:    m,
+					Pages:    s.PagesRead,
+					Sessions: 1,
+				}
+			}
+		}
+	}
+	var monthly []MonthlyReadingStat
+	for m := 1; m <= 12; m++ {
+		mStr := fmt.Sprintf("%s-%02d", currentYear, m)
+		if entry, ok := monthlyMap[mStr]; ok {
+			monthly = append(monthly, *entry)
+		}
+	}
 
 	// 7. Total de avaliações feitas
 	var reviewsCount int64

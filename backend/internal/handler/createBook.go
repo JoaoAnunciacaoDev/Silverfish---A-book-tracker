@@ -36,11 +36,20 @@ func (r *CreateBookRequest) Validate() error {
 	if r.Title == "" {
 		return errors.New("o título do livro é obrigatório")
 	}
+	if len([]rune(r.Title)) > 500 {
+		return errors.New("o título não pode ultrapassar 500 caracteres")
+	}
 	if r.Author == "" {
 		return errors.New("o autor do livro é obrigatório")
 	}
+	if len([]rune(r.Author)) > 300 {
+		return errors.New("o autor não pode ultrapassar 300 caracteres")
+	}
 	if r.PageCount <= 0 {
 		return errors.New("o livro deve ter pelo menos 1 página")
+	}
+	if r.PageCount > 50000 {
+		return errors.New("o livro não pode exceder 50.000 páginas")
 	}
 
 	return nil

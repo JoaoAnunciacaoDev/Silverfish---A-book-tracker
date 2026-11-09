@@ -77,9 +77,13 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
-	// Define cookie seguro HttpOnly
+	// Define cookie seguro HttpOnly (SameSite=None para cross-origin em produção, Lax em desenvolvimento)
 	isProd := cfg.Env == "production"
-	c.SetSameSite(http.SameSiteLaxMode)
+	if isProd {
+		c.SetSameSite(http.SameSiteNoneMode)
+	} else {
+		c.SetSameSite(http.SameSiteLaxMode)
+	}
 	c.SetCookie(
 		SessionCookieName,
 		rawToken,

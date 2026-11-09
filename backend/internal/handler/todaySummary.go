@@ -13,17 +13,16 @@ func TodayReadingSummaryHandler(c *gin.Context) {
 
 	today := getTodayInTimezone(user.Timezone)
 
-	var totalPagesRead int64
-	db.Model(&schemas.ReadingSession{}).
-		Where("user_id = ? AND read_at = ?", user.ID, today).
-		Select("COALESCE(SUM(pages_read), 0)").
-		Scan(&totalPagesRead)
-
 	var sessions []schemas.ReadingSession
 	db.Preload("UserBook.Book").
 		Where("user_id = ? AND read_at = ?", user.ID, today).
 		Order("created_at DESC").
 		Find(&sessions)
+
+	var totalPagesRead int64
+	for _, s := range sessions {
+		totalPagesRead += int64(s.PagesRead)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"date":             today,

@@ -24,6 +24,8 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 	// Rate Limiter contra força bruta: até 5 requisições rápidas por IP
 	authRateLimit := middleware.RateLimiter(rate.Every(3*time.Second), 5)
+	// Rate Limiter para busca externa contra abuso de cotas (Google Books / Open Library)
+	searchRateLimit := middleware.RateLimiter(rate.Every(1*time.Second), 10)
 
 	api := r.Group("/api")
 	{
@@ -54,7 +56,7 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 
 		api.GET("/books", handler.ListBooksHandler)
 		api.GET("/books/:id", handler.ShowBookHandler)
-		api.GET("/books/search-external", handler.SearchExternalBooksHandler)
+		api.GET("/books/search-external", searchRateLimit, handler.SearchExternalBooksHandler)
 		api.POST("/books", middleware.RequireAuth(), handler.CreateBookHandler)
 		api.POST("/books/import", middleware.RequireAuth(), handler.ImportBookHandler)
 

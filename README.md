@@ -1,84 +1,121 @@
-# Silverfish — A Book Tracker
+# Silverfish — A Book Tracker 📖
 
-Plataforma web voltada ao incentivo à leitura e à construção de hábitos de leitura através de gamificação (ofensivas/*streaks*, metas diárias, diário de leitura e biblioteca pessoal).
-
----
-
-## Stack
-
-- **Backend:** Go 1.27, Gin Gonic, GORM, SQLite (dev) / PostgreSQL (prod), golang-migrate.
-- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, TanStack Router, Lucide Icons, Bun.
-- **Gerenciador de Versões:** mise.
+Plataforma completa de incentivo à leitura e construção de hábitos diários através de metas personalizadas, ofensivas (*streaks*), diário detalhado de leituras, gamificação e rede social de leitores.
 
 ---
 
-## Como Executar o Projeto
+## Tecnologias Utilizadas
+
+### Backend
+- **Linguagem:** Go 1.27
+- **Web Framework:** [Gin Gonic](https://gin-gonic.com/)
+- **ORM & Banco de Dados:** [GORM](https://gorm.io/) com drivers para SQLite (desenvolvimento) e PostgreSQL (produção).
+- **Migrações:** [golang-migrate](https://github.com/golang-migrate/migrate) com migrações SQL embutidas diretamente no binário (`embed.FS`).
+- **Criptografia & Sessões:** `golang.org/x/crypto/bcrypt`, `crypto/hmac`, `crypto/sha256`.
+
+### Frontend
+- **Framework & UI:** [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite 8](https://vitejs.dev/).
+- **Estilização:** [Tailwind CSS v4](https://tailwindcss.com/).
+- **Roteamento & Estado:** [TanStack Router](https://tanstack.com/router) & [TanStack Query](https://tanstack.com/query).
+- **Linter & Qualidade:** [Oxlint](https://oxc.rs/) para análises estáticas ultravelozes.
+- **Ícones & Efeitos:** [Lucide Icons](https://lucide.dev/), Canvas Confetti.
+
+---
+
+## Como Executar o Projeto Localmente
 
 ### Pré-requisitos
-Instale o [mise](https://mise.jdx.dev/) e configure as ferramentas:
-```bash
-mise install
-```
+- [Go](https://go.dev/dl/) (versão 1.23 ou superior)
+- [Bun](https://bun.sh/) (versão 1.0 ou superior)
+- [Git](https://git-scm.com/)
 
 ---
 
-## Backend
+### Backend
 
-### 1. Configuração de Variáveis de Ambiente
-Copie o molde para criar o arquivo `.env`:
+1. Entre no diretório do backend e configure o `.env`:
+   ```bash
+   cd backend
+   cp .env.example .env
+   ```
+
+2. Exemplo de variáveis para desenvolvimento local:
+   ```env
+   PORT=8080
+   ENV=development
+   DB_DRIVER=sqlite
+   DB_SOURCE=silverfish.db
+   SESSION_SECRET=uma_chave_secreta_aleatoria_com_mais_de_32_caracteres_aqui
+   FRONTEND_URL=http://localhost:5173
+   ```
+
+3. Inicie o servidor:
+   ```bash
+   go run cmd/server/main.go
+   ```
+   *O servidor iniciará em `http://localhost:8080` com as migrações executadas automaticamente.*
+
+---
+
+### Frontend
+
+1. Em outro terminal, entre no diretório do frontend:
+   ```bash
+   cd frontend
+   bun install
+   ```
+
+2. Execute o servidor de desenvolvimento:
+   ```bash
+   bun dev
+   ```
+   *Acesse a aplicação em `http://localhost:5173`. O Vite está configurado para encaminhar chamadas `/api` automaticamente para o backend na porta 8080.*
+
+---
+
+## Testes e Integração Contínua (CI)
+
+Para rodar as validações manualmente na sua máquina:
 ```bash
-cp backend/.env.example backend/.env
-```
-
-Campos disponíveis no `.env`:
-| Variável | Padrão | Descrição |
-|---|---|---|
-| `PORT` | `8080` | Porta do servidor HTTP |
-| `ENV` | `development` | Ambiente (`development` ou `production`) |
-| `DB_DRIVER` | `sqlite` | Driver do banco (`sqlite` ou `postgres`) |
-| `DB_SOURCE` | `silverfish.db` | Caminho do arquivo SQLite ou DSN Postgres |
-| `SESSION_SECRET` | *(string)* | Chave secreta para assinatura HMAC das sessões |
-| `FRONTEND_URL` | `http://localhost:5173` | Origem autorizada no CORS |
-
-### 2. Executando o Servidor
-As migrações SQL são **embutidas no binário** e executadas automaticamente no startup.
-
-Você pode executar o backend a partir da raiz ou da pasta `backend`:
-```bash
+# Backend
 cd backend
-go run cmd/server/main.go
-```
+go vet ./...
+go test -v ./...
 
-O servidor conta com:
-- **Graceful Shutdown:** ao pressionar `Ctrl+C` ou receber `SIGTERM`, aguarda até 5 segundos para que as requisições ativas concluam com segurança.
-- **Limpeza Automática:** goroutine em segundo plano limpa sessões expiradas a cada 1 hora.
-- **Rate Limiting:** proteção por IP usando algoritmo *Token Bucket* contra força bruta em rotas de autenticação.
-- **Segurança de Sessão:** tokens gerados com criptografia aleatória e armazenados no banco apenas com hash HMAC-SHA256 (`SESSION_SECRET`).
-
----
-
-## Endpoints da API (Fase 1)
-
-### Diagnóstico
-- `GET /api/health` — Verifica o status do serviço e testa a conectividade ativa com o banco de dados via `Ping()`.
-
-### Autenticação (Sessions + HttpOnly Cookies)
-- `POST /api/auth/register` — Cria conta (valida email, username alfanumérico e senha forte com min 8 caracteres, maiúscula e número).
-- `POST /api/auth/login` — Autentica o usuário e define o cookie seguro `silverfish_session`.
-- `POST /api/auth/logout` — Invalida a sessão no banco e limpa o cookie.
-- `GET /api/auth/me` — Retorna os dados do usuário logado (requer sessão ativa).
-
-### Administração (RBAC)
-- `GET /api/admin/stats` — Rota protegida exclusiva para contas com papel `SUPERUSER`.
-
----
-
-## Frontend
-
-Para rodar o frontend:
-```bash
+# Frontend
 cd frontend
-bun install
-bun dev
+bun run lint
+bun run build
 ```
-Acesse `http://localhost:5173`. O Vite já está configurado com proxy para `/api` apontando para o backend em `http://localhost:8080`.
+
+---
+
+## Estrutura de Pastas
+
+```text
+silverfish/
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # Pipeline de CI (Lint e Testes)
+├── backend/
+│   ├── cmd/server/main.go       # Ponto de entrada do backend
+│   ├── internal/
+│   │   ├── config/              # Leitura de variáveis de ambiente
+│   │   ├── database/            # Conexão GORM (SQLite / Postgres)
+│   │   ├── handler/             # Handlers HTTP REST e regras de negócio
+│   │   ├── middleware/          # Auth, CORS, Rate Limit e Logger
+│   │   ├── router/              # Mapeamento de rotas e workers em background
+│   │   └── schemas/             # Modelos GORM e DTOs de validação
+│   └── migrations/              # Migrações SQL numeradas (.up.sql / .down.sql)
+└── frontend/
+    ├── public/                  # Ícones, manifest.webmanifest e sw.js (PWA)
+    ├── src/
+    │   ├── api/                 # Clientes HTTP (fetch com credentials)
+    │   ├── components/          # Componentes visuais reutilizáveis e modais
+    │   ├── features/            # Módulos da aplicação (auth, reading, social, admin, etc.)
+    │   ├── types/               # Tipagens TypeScript centralizadas
+    │   └── main.tsx             # Bootstrap do React 19 e rotas
+    ├── package.json
+    └── vite.config.ts
+```
+

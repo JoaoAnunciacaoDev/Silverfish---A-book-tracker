@@ -85,7 +85,7 @@ export function UserProfileModal({ username, onClose, onFollowChanged }: UserPro
       }
       onFollowChanged?.()
     } catch (err: any) {
-      alert(err.message || 'Erro ao atualizar seguidor')
+      setError(err.message || 'Erro ao atualizar seguidor')
     } finally {
       setIsFollowLoading(false)
     }

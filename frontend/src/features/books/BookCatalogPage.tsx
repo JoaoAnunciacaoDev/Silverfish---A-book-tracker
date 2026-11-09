@@ -110,9 +110,9 @@ export function BookCatalogPage() {
       showToast(`"${res.book.title}" adicionado! Escolha a categoria na sua estante.`)
     } catch (err: unknown) {
       if (err instanceof Error) {
-        alert(err.message)
+        showToast(err.message)
       } else {
-        alert('Falha ao adicionar livro')
+        showToast('Falha ao adicionar livro')
       }
     } finally {
       setImportingKey(null)

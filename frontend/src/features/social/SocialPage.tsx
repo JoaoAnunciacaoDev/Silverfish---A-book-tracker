@@ -67,6 +67,12 @@ export function SocialPage() {
 
   // Profile Modal State
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null)
+  const [socialToast, setSocialToast] = useState<string | null>(null)
+
+  const showSocialToast = (msg: string) => {
+    setSocialToast(msg)
+    setTimeout(() => setSocialToast(null), 4000)
+  }
 
   // Carrega Feed
   const loadFeed = async () => {
@@ -177,7 +183,7 @@ export function SocialPage() {
         )
       )
     } catch (err: any) {
-      alert(err.message || 'Erro ao enviar comentário')
+      showSocialToast(err.message || 'Erro ao enviar comentário')
     } finally {
       setIsSubmittingComment(false)
     }
@@ -209,8 +215,9 @@ export function SocialPage() {
       setSearchResults((prev) =>
         prev.map((u) => (u.username === username ? { ...u, is_following: !currentlyFollowing } : u))
       )
+      showSocialToast(currentlyFollowing ? `Você deixou de seguir @${username}` : `Você agora segue @${username}`)
     } catch (err: any) {
-      alert(err.message || 'Erro ao atualizar seguidor')
+      showSocialToast(err.message || 'Erro ao atualizar seguidor')
     }
   }
 
@@ -218,8 +225,9 @@ export function SocialPage() {
     try {
       await respondFollowRequest(followId, action)
       setPendingRequests((prev) => prev.filter((r) => r.id !== followId))
+      showSocialToast(action === 'accept' ? 'Solicitação aceita!' : 'Solicitação rejeitada')
     } catch (err: any) {
-      alert(err.message || 'Erro ao responder solicitação')
+      showSocialToast(err.message || 'Erro ao responder solicitação')
     }
   }
 
@@ -234,6 +242,14 @@ export function SocialPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Feedback */}
+      {socialToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-2 animate-in fade-in slide-in-from-bottom-4">
+          <Users className="w-5 h-5" />
+          <span className="text-sm font-medium">{socialToast}</span>
+        </div>
+      )}
+
       {/* Header da Página */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-6 rounded-3xl border border-slate-800">
         <div>

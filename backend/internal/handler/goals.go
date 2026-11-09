@@ -219,7 +219,7 @@ func GetGoalHistoryHandler(c *gin.Context) {
 
 	query := db.Model(&schemas.GoalHistory{}).Where("user_id = ?", user.ID)
 	if month != "" {
-		query = query.Where("date LIKE ?", month+"%")
+		query = query.Where("date >= ? AND date <= ?", month+"-01", month+"-31")
 	}
 
 	var history []schemas.GoalHistory

@@ -34,9 +34,11 @@ func AdminDashboardStatsHandler(c *gin.Context) {
 
 	// Usuários ativos no mês atual (com sessões de leitura registradas)
 	currentMonth := time.Now().Format("2006-01")
+	monthStart := currentMonth + "-01"
+	monthEnd := currentMonth + "-31"
 	var activeUsersThisMonth int64
 	_ = db.Model(&schemas.ReadingSession{}).
-		Where("read_at LIKE ?", currentMonth+"%").
+		Where("read_at >= ? AND read_at <= ?", monthStart, monthEnd).
 		Distinct("user_id").
 		Count(&activeUsersThisMonth).Error
 
@@ -127,24 +129,53 @@ func AdminListUsersHandler(c *gin.Context) {
 	}
 
 	userViews := make([]AdminUserView, 0, len(users))
-	for _, u := range users {
-		var pages int64
-		_ = db.Model(&schemas.ReadingSession{}).Where("user_id = ?", u.ID).Select("COALESCE(SUM(pages_read), 0)").Scan(&pages).Error
 
-		var books int64
-		_ = db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", u.ID, schemas.StatusRead).Count(&books).Error
+	if len(users) > 0 {
+		userIDs := make([]string, len(users))
+		for i, u := range users {
+			userIDs[i] = u.ID
+		}
 
-		userViews = append(userViews, AdminUserView{
-			ID:             u.ID,
-			Email:          u.Email,
-			Username:       u.Username,
-			DisplayName:    u.DisplayName,
-			Role:           u.Role,
-			IsPrivate:      u.IsPrivate,
-			TotalPagesRead: pages,
-			TotalBooksRead: books,
-			CreatedAt:      u.CreatedAt,
-		})
+		type UserTotal struct {
+			UserID string `gorm:"column:user_id"`
+			Total  int64  `gorm:"column:total"`
+		}
+
+		var pagesSum []UserTotal
+		_ = db.Model(&schemas.ReadingSession{}).
+			Select("user_id, COALESCE(SUM(pages_read), 0) as total").
+			Where("user_id IN (?)", userIDs).
+			Group("user_id").
+			Scan(&pagesSum).Error
+		pagesMap := make(map[string]int64, len(pagesSum))
+		for _, ps := range pagesSum {
+			pagesMap[ps.UserID] = ps.Total
+		}
+
+		var booksCount []UserTotal
+		_ = db.Model(&schemas.UserBook{}).
+			Select("user_id, COUNT(*) as total").
+			Where("user_id IN (?) AND status = ?", userIDs, schemas.StatusRead).
+			Group("user_id").
+			Scan(&booksCount).Error
+		booksMap := make(map[string]int64, len(booksCount))
+		for _, bc := range booksCount {
+			booksMap[bc.UserID] = bc.Total
+		}
+
+		for _, u := range users {
+			userViews = append(userViews, AdminUserView{
+				ID:             u.ID,
+				Email:          u.Email,
+				Username:       u.Username,
+				DisplayName:    u.DisplayName,
+				Role:           u.Role,
+				IsPrivate:      u.IsPrivate,
+				TotalPagesRead: pagesMap[u.ID],
+				TotalBooksRead: booksMap[u.ID],
+				CreatedAt:      u.CreatedAt,
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

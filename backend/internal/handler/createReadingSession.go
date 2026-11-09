@@ -35,6 +35,9 @@ func (r *CreateReadingSessionRequest) Validate() error {
 	if r.EndPage <= r.StartPage {
 		return errors.New("a pagina final deve ser maior que a pagina inicial")
 	}
+	if (r.EndPage - r.StartPage) > 2000 {
+		return errors.New("uma única sessão de leitura não pode exceder 2.000 páginas")
+	}
 	if r.Comprehension != nil && (*r.Comprehension < 1 || *r.Comprehension > 5) {
 		return errors.New("a compreensao deve ser uma nota de 1 a 5")
 	}

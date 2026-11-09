@@ -53,7 +53,7 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
 
   const handleEnablePushInBrowser = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert('Seu navegador não suporta notificações Web Push.')
+      setFeedback('Seu navegador não suporta notificações Web Push.')
       return
     }
 

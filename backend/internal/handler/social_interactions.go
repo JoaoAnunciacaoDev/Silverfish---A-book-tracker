@@ -28,7 +28,10 @@ func ToggleActivityLikeHandler(c *gin.Context) {
 	liked := false
 	if err == nil {
 		// Descurtir
-		db.Delete(&existingLike)
+		if delErr := db.Delete(&existingLike).Error; delErr != nil {
+			sendError(c, http.StatusInternalServerError, "erro ao remover curtida")
+			return
+		}
 		liked = false
 	} else {
 		// Curtir

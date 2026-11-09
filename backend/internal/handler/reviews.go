@@ -83,6 +83,13 @@ func CreateBookReviewHandler(c *gin.Context) {
 		return
 	}
 
+	// 3. Impede avaliações duplicadas para o mesmo livro
+	var existingReview schemas.BookReview
+	if err := db.Where("user_id = ? AND book_id = ?", user.ID, bookID).First(&existingReview).Error; err == nil {
+		sendError(c, http.StatusConflict, "você já avaliou este livro. Você pode editar sua avaliação existente.")
+		return
+	}
+
 	now := time.Now()
 	review := schemas.BookReview{
 		ID:        uuid.NewString(),
