@@ -230,41 +230,62 @@ export function BookCatalogPage() {
               <p className="text-sm">Buscando livros...</p>
             </div>
           ) : searchResults.length === 0 ? (
-            <div className="py-12 text-center border border-dashed border-slate-800 rounded-3xl p-8 space-y-4">
-              <BookOpen className="w-12 h-12 text-slate-600 mx-auto" />
-              <div className="space-y-1">
-                <h3 className="text-base font-semibold text-white">Nenhum resultado encontrado</h3>
-                <p className="text-sm text-slate-400 max-w-md mx-auto">
-                  Não localizamos nenhuma obra correspondente a "{activeQuery}".
-                </p>
-              </div>
-
-              {/* Dica amigável sobre títulos e gibis/mangás */}
-              <div className="max-w-lg mx-auto bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-xs text-slate-400 text-left flex items-start space-x-3">
-                <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="space-y-1.5">
-                  <p>
-                    <strong className="text-slate-200">Dica de busca:</strong> As bases de dados mundiais indexam principalmente livros comerciais com ISBN de livraria.
-                  </p>
-                  <p>
-                    Revistas em quadrinhos mensais de banca (como gibis da Panini/Turma da Mônica Jovem) e edições raras ou independentes costumam não ter registro ISBN individual.
-                  </p>
-                  <p>
-                    Você pode cadastrar essa edição específica diretamente abaixo para adicioná-la à sua estante:
+            searchPagination.page > 1 ? (
+              <div className="py-12 text-center border border-dashed border-slate-800 rounded-3xl p-8 space-y-4">
+                <BookOpen className="w-12 h-12 text-slate-600 mx-auto" />
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-white">Fim dos resultados</h3>
+                  <p className="text-sm text-slate-400 max-w-md mx-auto">
+                    Não há mais livros nesta página para "{activeQuery}".
                   </p>
                 </div>
+                <div>
+                  <button
+                    onClick={() => executeSearch(activeQuery, searchPagination.page - 1)}
+                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Voltar para a Página Anterior</span>
+                  </button>
+                </div>
               </div>
+            ) : (
+              <div className="py-12 text-center border border-dashed border-slate-800 rounded-3xl p-8 space-y-4">
+                <BookOpen className="w-12 h-12 text-slate-600 mx-auto" />
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-white">Nenhum resultado encontrado</h3>
+                  <p className="text-sm text-slate-400 max-w-md mx-auto">
+                    Não localizamos nenhuma obra correspondente a "{activeQuery}".
+                  </p>
+                </div>
 
-              <div>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Cadastrar "{activeQuery}" Manualmente</span>
-                </button>
+                {/* Dica amigável sobre títulos e gibis/mangás */}
+                <div className="max-w-lg mx-auto bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-xs text-slate-400 text-left flex items-start space-x-3">
+                  <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1.5">
+                    <p>
+                      <strong className="text-slate-200">Dica de busca:</strong> As bases de dados mundiais indexam principalmente livros comerciais com ISBN de livraria.
+                    </p>
+                    <p>
+                      Revistas em quadrinhos mensais de banca (como gibis da Panini/Turma da Mônica Jovem) e edições raras ou independentes costumam não ter registro ISBN individual.
+                    </p>
+                    <p>
+                      Você pode cadastrar essa edição específica diretamente abaixo para adicioná-la à sua estante:
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Cadastrar "{activeQuery}" Manualmente</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {searchResults.map((item) => (
@@ -279,11 +300,13 @@ export function BookCatalogPage() {
           )}
 
           {/* Paginação dos Resultados da Busca */}
-          {searchPagination.total_pages > 1 && (
+          {(searchPagination.total_pages > 1 || searchPagination.page > 1) && (
             <div className="flex items-center justify-between border-t border-slate-800 pt-4">
               <p className="text-xs text-slate-400">
-                Página <span className="font-semibold text-white">{searchPagination.page}</span> de{' '}
-                <span className="font-semibold text-white">{searchPagination.total_pages}</span>
+                Página <span className="font-semibold text-white">{searchPagination.page}</span>
+                {searchPagination.total_pages > 0 && (
+                  <> de <span className="font-semibold text-white">{searchPagination.total_pages}</span></>
+                )}
               </p>
 
               <div className="flex items-center space-x-2">

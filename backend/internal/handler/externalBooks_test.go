@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"context"
+	"os"
 	"testing"
 )
 
@@ -140,4 +142,23 @@ func TestRankJaneMcGonigal(t *testing.T) {
 	if ranked[0].Title != "A Realidade em Jogo: Por que os games nos tornam melhores e como eles podem mudar o mundo" {
 		t.Errorf("esperava que 'A Realidade em Jogo' ficasse em primeiro lugar, mas veio: %q", ranked[0].Title)
 	}
+}
+
+func TestPaginationGoogleBooks(t *testing.T) {
+	apiKey := os.Getenv("GOOGLE_BOOKS_API_KEY")
+	if apiKey == "" && cfg != nil {
+		apiKey = cfg.GoogleBooksAPIKey
+	}
+	if apiKey == "" {
+		t.Skip("Pulando teste com API externa pois GOOGLE_BOOKS_API_KEY não está no ambiente")
+	}
+
+	// Testa query curta que só tem 1 página de títulos reais
+	p1, total1, _ := searchGoogleBooks(context.Background(), "realidade em jogo", 1, 15, apiKey)
+	t.Logf("realidade em jogo: p1=%d items, totalEstimate=%d", len(p1), total1)
+
+	// Testa query ampla que tem várias páginas reais
+	p1Broad, totalBroad1, _ := searchGoogleBooks(context.Background(), "machado de assis", 1, 15, apiKey)
+	p2Broad, totalBroad2, _ := searchGoogleBooks(context.Background(), "machado de assis", 2, 15, apiKey)
+	t.Logf("machado de assis: p1=%d items (total=%d), p2=%d items (total=%d)", len(p1Broad), totalBroad1, len(p2Broad), totalBroad2)
 }

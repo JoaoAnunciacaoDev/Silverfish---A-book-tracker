@@ -89,27 +89,29 @@ type openLibraryEditionsResponse struct {
 }
 
 // Estruturas do Google Books API
+type googleBookVolume struct {
+	ID         string `json:"id"`
+	VolumeInfo struct {
+		Title               string   `json:"title"`
+		Authors             []string `json:"authors"`
+		Description         string   `json:"description"`
+		PublishedDate       string   `json:"publishedDate"`
+		PageCount           int      `json:"pageCount"`
+		Categories          []string `json:"categories"`
+		IndustryIdentifiers []struct {
+			Type       string `json:"type"`
+			Identifier string `json:"identifier"`
+		} `json:"industryIdentifiers"`
+		ImageLinks struct {
+			SmallThumbnail string `json:"smallThumbnail"`
+			Thumbnail      string `json:"thumbnail"`
+		} `json:"imageLinks"`
+	} `json:"volumeInfo"`
+}
+
 type googleBooksResponse struct {
-	TotalItems int `json:"totalItems"`
-	Items      []struct {
-		ID         string `json:"id"`
-		VolumeInfo struct {
-			Title               string   `json:"title"`
-			Authors             []string `json:"authors"`
-			Description         string   `json:"description"`
-			PublishedDate       string   `json:"publishedDate"`
-			PageCount           int      `json:"pageCount"`
-			Categories          []string `json:"categories"`
-			IndustryIdentifiers []struct {
-				Type       string `json:"type"`
-				Identifier string `json:"identifier"`
-			} `json:"industryIdentifiers"`
-			ImageLinks struct {
-				SmallThumbnail string `json:"smallThumbnail"`
-				Thumbnail      string `json:"thumbnail"`
-			} `json:"imageLinks"`
-		} `json:"volumeInfo"`
-	} `json:"items"`
+	TotalItems int                `json:"totalItems"`
+	Items      []googleBookVolume `json:"items"`
 }
 
 // cleanISBN verifica se a string é um ISBN de 10 ou 13 dígitos
@@ -410,123 +412,155 @@ func fetchGoogleBooks(ctx context.Context, query string, startIndex, limit int, 
 	return nil, lastErr
 }
 
+func parseGoogleBookItem(item googleBookVolume) ExternalBookItem {
+	info := item.VolumeInfo
+
+	author := "Autor Desconhecido"
+	if len(info.Authors) > 0 {
+		author = strings.Join(info.Authors, ", ")
+	}
+
+	// Capa em HTTPS
+	coverURL := info.ImageLinks.Thumbnail
+	if coverURL == "" {
+		coverURL = info.ImageLinks.SmallThumbnail
+	}
+	if strings.HasPrefix(coverURL, "http://") {
+		coverURL = "https://" + coverURL[7:]
+	}
+
+	// Extrai ISBN (prioriza ISBN_13)
+	isbn := ""
+	for _, idf := range info.IndustryIdentifiers {
+		if idf.Type == "ISBN_13" {
+			isbn = idf.Identifier
+			break
+		}
+		if isbn == "" && idf.Type == "ISBN_10" {
+			isbn = idf.Identifier
+		}
+	}
+
+	// Extrai ano
+	year := 0
+	if len(info.PublishedDate) >= 4 {
+		year, _ = strconv.Atoi(info.PublishedDate[:4])
+	}
+
+	genre := ""
+	if len(info.Categories) > 0 {
+		genre = info.Categories[0]
+	}
+
+	pages := info.PageCount
+	if pages <= 0 {
+		pages = 100
+	}
+
+	return ExternalBookItem{
+		OpenLibraryKey: "google:" + item.ID,
+		Title:          info.Title,
+		Author:         author,
+		Description:    info.Description,
+		CoverURL:       coverURL,
+		PageCount:      pages,
+		Year:           year,
+		Genre:          genre,
+		ISBN:           isbn,
+	}
+}
+
 func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey string) ([]ExternalBookItem, int, error) {
 	startIndex := (page - 1) * limit
 
-	var gResp *googleBooksResponse
-	var err error
-
-	// 1. Se for um ISBN, busca com operador isbn:
+	// 1. Se for um ISBN, busca direta
 	if isbn, isISBN := cleanISBN(q); isISBN {
-		gResp, err = fetchGoogleBooks(ctx, "isbn:"+isbn, startIndex, limit, apiKey)
-	} else {
-		// 2. Busca direta com todos os termos informados pelo usuário
-		gResp, err = fetchGoogleBooks(ctx, q, startIndex, limit, apiKey)
+		gResp, err := fetchGoogleBooks(ctx, "isbn:"+isbn, startIndex, limit, apiKey)
+		if err != nil {
+			return nil, 0, err
+		}
+		if gResp == nil || len(gResp.Items) == 0 {
+			return nil, 0, nil
+		}
+		var results []ExternalBookItem
+		for _, it := range gResp.Items {
+			results = append(results, parseGoogleBookItem(it))
+		}
+		return results, gResp.TotalItems, nil
+	}
 
-		// 3. Fallback inteligente: se o usuário digitou palavras como "edição", "ed.", "volume", "nº"
-		// e a busca exata retornou vazia, tenta sem essas palavras auxiliares (ex: "turma da mônica jovem edição 50" -> "turma da mônica jovem 50")
-		if (err == nil && (gResp == nil || len(gResp.Items) == 0)) && !strings.Contains(q, ":") {
-			relaxed := strings.ToLower(q)
-			for _, term := range []string{"edição ", "edicao ", "ed. ", "ed ", "volume ", "vol. ", "vol ", "nº ", "nº", "#"} {
-				relaxed = strings.ReplaceAll(relaxed, term, " ")
+	seenIDs := make(map[string]bool)
+	var candidateItems []ExternalBookItem
+	totalEstimate := 0
+
+	// 2. Busca com intitle: quando a query não possui operadores especiais.
+	// Isso garante que obras como "realidade em jogo", "o hobbit", "a hora da estrela"
+	// sejam encontradas pelo título exato de imediato, em vez de ficarem perdidas em buscas de texto completo.
+	if !strings.Contains(q, ":") {
+		intitleQuery := "intitle:" + q
+		if titleResp, tErr := fetchGoogleBooks(ctx, intitleQuery, startIndex, limit, apiKey); tErr == nil && titleResp != nil {
+			if titleResp.TotalItems > totalEstimate {
+				totalEstimate = titleResp.TotalItems
 			}
-			relaxed = strings.Join(strings.Fields(relaxed), " ")
-			if relaxed != "" && relaxed != strings.ToLower(q) {
-				log.Printf("[GOOGLE BOOKS] Tentando busca relaxada: '%s'", relaxed)
-				if rResp, rErr := fetchGoogleBooks(ctx, relaxed, startIndex, limit, apiKey); rErr == nil && rResp != nil && len(rResp.Items) > 0 {
-					gResp = rResp
-					err = nil
+			for _, it := range titleResp.Items {
+				seenIDs[it.ID] = true
+				parsed := parseGoogleBookItem(it)
+				if isRelevantResult(parsed, q) {
+					candidateItems = append(candidateItems, parsed)
 				}
 			}
 		}
+	}
 
-		// 4. Fallback sem conectivos/preposições (ex: "realidade em jogo da jane mcgonigal" -> "realidade em jogo jane mcgonigal")
-		if (err == nil && (gResp == nil || len(gResp.Items) == 0)) && !strings.Contains(q, ":") {
-			noPreps := strings.ToLower(q)
-			for _, prep := range []string{" da ", " de ", " do ", " das ", " dos ", " em ", " por ", " com "} {
-				noPreps = strings.ReplaceAll(noPreps, prep, " ")
+	// 3. Busca geral (q) para capturar autores, temas ou títulos não indexados perfeitamente pelo intitle:
+	generalResp, gErr := fetchGoogleBooks(ctx, q, startIndex, limit, apiKey)
+	if gErr == nil && generalResp != nil {
+		if generalResp.TotalItems > totalEstimate {
+			totalEstimate = generalResp.TotalItems
+		}
+		for _, it := range generalResp.Items {
+			if seenIDs[it.ID] {
+				continue
 			}
-			noPreps = strings.Join(strings.Fields(noPreps), " ")
-			if noPreps != "" && noPreps != strings.ToLower(q) {
-				log.Printf("[GOOGLE BOOKS] Tentando busca sem preposições: '%s'", noPreps)
-				if npResp, npErr := fetchGoogleBooks(ctx, noPreps, startIndex, limit, apiKey); npErr == nil && npResp != nil && len(npResp.Items) > 0 {
-					gResp = npResp
-					err = nil
+			seenIDs[it.ID] = true
+			parsed := parseGoogleBookItem(it)
+			if isRelevantResult(parsed, q) {
+				candidateItems = append(candidateItems, parsed)
+			}
+		}
+	}
+
+	// 4. Fallback sem conectivos/preposições (ex: "realidade em jogo da jane mcgonigal" -> "realidade em jogo jane mcgonigal")
+	if len(candidateItems) == 0 && !strings.Contains(q, ":") {
+		noPreps := strings.ToLower(q)
+		for _, prep := range []string{" da ", " de ", " do ", " das ", " dos ", " em ", " por ", " com "} {
+			noPreps = strings.ReplaceAll(noPreps, prep, " ")
+		}
+		noPreps = strings.Join(strings.Fields(noPreps), " ")
+		if noPreps != "" && noPreps != strings.ToLower(q) {
+			if npResp, npErr := fetchGoogleBooks(ctx, noPreps, startIndex, limit, apiKey); npErr == nil && npResp != nil {
+				for _, it := range npResp.Items {
+					if seenIDs[it.ID] {
+						continue
+					}
+					seenIDs[it.ID] = true
+					parsed := parseGoogleBookItem(it)
+					if isRelevantResult(parsed, q) {
+						candidateItems = append(candidateItems, parsed)
+					}
 				}
 			}
 		}
 	}
 
-	if err != nil {
-		return nil, 0, err
-	}
-	if gResp == nil || len(gResp.Items) == 0 {
-		return nil, 0, nil
+	if gErr != nil && len(candidateItems) == 0 {
+		return nil, 0, gErr
 	}
 
-	results := make([]ExternalBookItem, 0, len(gResp.Items))
-	for _, item := range gResp.Items {
-		info := item.VolumeInfo
+	// Reordena os resultados priorizando a melhor correspondência
+	rankedResults := rankSearchResults(candidateItems, q)
 
-		author := "Autor Desconhecido"
-		if len(info.Authors) > 0 {
-			author = strings.Join(info.Authors, ", ")
-		}
-
-		// Capa em HTTPS
-		coverURL := info.ImageLinks.Thumbnail
-		if coverURL == "" {
-			coverURL = info.ImageLinks.SmallThumbnail
-		}
-		if strings.HasPrefix(coverURL, "http://") {
-			coverURL = "https://" + coverURL[7:]
-		}
-
-		// Extrai ISBN (prioriza ISBN_13)
-		isbn := ""
-		for _, idf := range info.IndustryIdentifiers {
-			if idf.Type == "ISBN_13" {
-				isbn = idf.Identifier
-				break
-			}
-			if isbn == "" && idf.Type == "ISBN_10" {
-				isbn = idf.Identifier
-			}
-		}
-
-		// Extrai ano
-		year := 0
-		if len(info.PublishedDate) >= 4 {
-			year, _ = strconv.Atoi(info.PublishedDate[:4])
-		}
-
-		genre := ""
-		if len(info.Categories) > 0 {
-			genre = info.Categories[0]
-		}
-
-		pages := info.PageCount
-		if pages <= 0 {
-			pages = 100
-		}
-
-		results = append(results, ExternalBookItem{
-			OpenLibraryKey: "google:" + item.ID,
-			Title:          info.Title,
-			Author:         author,
-			Description:    info.Description,
-			CoverURL:       coverURL,
-			PageCount:      pages,
-			Year:           year,
-			Genre:          genre,
-			ISBN:           isbn,
-		})
-	}
-
-	// Reordena os resultados para priorizar a edição/volume exato pesquisado
-	rankedResults := rankSearchResults(results, q)
-
-	return rankedResults, gResp.TotalItems, nil
+	return rankedResults, totalEstimate, nil
 }
 
 func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]ExternalBookItem, int, error) {
@@ -789,16 +823,18 @@ func SearchExternalBooksHandler(c *gin.Context) {
 	if gbErr != nil {
 		log.Printf("[GOOGLE BOOKS] Erro na consulta: %v", gbErr)
 	} else {
-		log.Printf("[GOOGLE BOOKS] Itens crus retornados: %d (Total estimado: %d)", len(gbResults), gbTotal)
-		for _, it := range gbResults {
-			if isRelevantResult(it, q) {
-				candidateResults = append(candidateResults, it)
-			}
-		}
-		if gbTotal > 0 {
-			totalItems = gbTotal
+		log.Printf("[GOOGLE BOOKS] Itens relevantes retornados: %d (Total bruto estimado: %d)", len(gbResults), gbTotal)
+		candidateResults = append(candidateResults, gbResults...)
+
+		// Se a busca retornou menos itens que o limite, esta é a última página de resultados
+		if len(gbResults) < limit {
+			totalItems = (page-1)*limit + len(gbResults)
 		} else {
-			totalItems = len(candidateResults)
+			if gbTotal > (page * limit) {
+				totalItems = gbTotal
+			} else {
+				totalItems = (page * limit) + 1
+			}
 		}
 	}
 
@@ -848,8 +884,12 @@ func SearchExternalBooksHandler(c *gin.Context) {
 					}
 				}
 			}
-			if totalItems < olTotal {
-				totalItems += len(candidateResults)
+			minTotal := (page-1)*limit + len(candidateResults)
+			if totalItems < minTotal {
+				totalItems = minTotal
+			}
+			if len(candidateResults) >= limit && olTotal > totalItems {
+				totalItems = olTotal
 			}
 		} else if olErr != nil {
 			log.Printf("[OPEN LIBRARY] Erro na consulta: %v", olErr)
