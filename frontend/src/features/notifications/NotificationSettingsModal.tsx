@@ -187,15 +187,39 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
     try {
       const res = await sendTestNotification()
       setFeedback(res.message)
-      // Se houver suporte a Notification na janela, exibe localmente
-      if (Notification.permission === 'granted') {
-        new Notification(res.payload.title, {
-          body: res.payload.body,
-          icon: res.payload.icon,
-        })
+
+      // Exibe notificação local compatível com Mobile (PWA/Android/iOS) e Desktop
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.ready
+          await reg.showNotification(res.payload.title, {
+            body: res.payload.body,
+            icon: res.payload.icon || '/favicon.svg',
+            badge: '/favicon.svg',
+          })
+          return
+        } catch {
+          // Fallback silencioso caso o Service Worker não esteja pronto
+        }
       }
-    } catch (err: any) {
-      setFeedback(err.message || 'Erro ao enviar notificação de teste')
+
+      // Fallback para navegadores desktop que suportem o construtor window.Notification
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification(res.payload.title, {
+            body: res.payload.body,
+            icon: res.payload.icon,
+          })
+        } catch {
+          // Dispositivos móveis lançam 'Illegal constructor' aqui, ignorado com segurança
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setFeedback(err.message)
+      } else {
+        setFeedback('Erro ao enviar notificação de teste')
+      }
     } finally {
       setIsTesting(false)
     }
