@@ -199,13 +199,6 @@ export function BookCatalogPage() {
                 </span>
               )}
             </h2>
-
-            <button
-              onClick={handleClearSearch}
-              className="text-xs text-emerald-400 hover:underline cursor-pointer"
-            >
-              Ver livros cadastrados
-            </button>
           </div>
 
           {searchError && (

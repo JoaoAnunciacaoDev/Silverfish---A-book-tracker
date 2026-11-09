@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -98,9 +99,129 @@ type googleBooksResponse struct {
 	} `json:"items"`
 }
 
+// cleanISBN verifica se a string é um ISBN de 10 ou 13 dígitos
+func cleanISBN(s string) (string, bool) {
+	cleaned := strings.ReplaceAll(strings.ReplaceAll(s, "-", ""), " ", "")
+	if len(cleaned) == 10 || len(cleaned) == 13 {
+		isNumeric := true
+		for i, c := range cleaned {
+			if i == len(cleaned)-1 && (c == 'X' || c == 'x') {
+				continue
+			}
+			if c < '0' || c > '9' {
+				isNumeric = false
+				break
+			}
+		}
+		if isNumeric {
+			return cleaned, true
+		}
+	}
+	return "", false
+}
+
+// rankSearchResults reordena os resultados priorizando edições específicas, números de volume e termos exatos
+func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookItem {
+	if len(items) <= 1 {
+		return items
+	}
+
+	lowerQuery := strings.ToLower(query)
+	queryWords := strings.Fields(lowerQuery)
+	var numbers []string
+	for _, w := range queryWords {
+		clean := strings.Trim(w, "#º°.,-()")
+		if _, err := strconv.Atoi(clean); err == nil && len(clean) > 0 {
+			numbers = append(numbers, clean)
+		}
+	}
+
+	type scoredItem struct {
+		item  ExternalBookItem
+		score int
+		index int
+	}
+
+	scored := make([]scoredItem, len(items))
+	for i, it := range items {
+		score := 0
+		lowerTitle := strings.ToLower(it.Title)
+		lowerDesc := strings.ToLower(it.Description)
+		lowerAuthor := strings.ToLower(it.Author)
+
+		// 1. Se o usuário buscou um número (ex: 50) e o livro contém esse número exato no título
+		for _, num := range numbers {
+			hasNumberInTitle := false
+			patterns := []string{
+				" " + num + " ", " " + num + ":", " " + num + "-", " " + num + " -",
+				"#" + num, "nº " + num, "nº" + num, "vol " + num, "vol. " + num, "vol." + num,
+				"edição " + num, "ed. " + num, "edicao " + num, "ed " + num,
+				"(" + num + ")", "[" + num + "]",
+			}
+			for _, pat := range patterns {
+				if strings.Contains(lowerTitle, pat) {
+					hasNumberInTitle = true
+					break
+				}
+			}
+			if !hasNumberInTitle {
+				if strings.HasPrefix(lowerTitle, num+" ") || strings.HasSuffix(lowerTitle, " "+num) || lowerTitle == num {
+					hasNumberInTitle = true
+				}
+			}
+
+			if hasNumberInTitle {
+				score += 200 // Prioridade máxima para a edição numérica desejada
+			} else if strings.Contains(lowerTitle, num) {
+				score += 80
+			} else if strings.Contains(lowerDesc, num) {
+				score += 20
+			}
+		}
+
+		// 2. Pontuação por presença das palavras da busca no título
+		for _, w := range queryWords {
+			if len(w) >= 3 && strings.Contains(lowerTitle, w) {
+				score += 15
+			}
+		}
+
+		// 3. Match de autor
+		if strings.Contains(lowerAuthor, lowerQuery) {
+			score += 40
+		}
+
+		// 4. Capa existente (melhor experiência visual)
+		if it.CoverURL != "" {
+			score += 10
+		}
+
+		// 5. ISBN existente
+		if it.ISBN != "" {
+			score += 5
+		}
+
+		scored[i] = scoredItem{item: it, score: score, index: i}
+	}
+
+	// Ordenação estável decrescente por score
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].score != scored[j].score {
+			return scored[i].score > scored[j].score
+		}
+		return scored[i].index < scored[j].index
+	})
+
+	results := make([]ExternalBookItem, len(items))
+	for i, s := range scored {
+		results[i] = s.item
+	}
+	return results
+}
+
 func fetchGoogleBooks(ctx context.Context, query string, startIndex, limit int, apiKey string) (*googleBooksResponse, error) {
 	apiURL := fmt.Sprintf(
-		"https://www.googleapis.com/books/v1/volumes?q=%s&startIndex=%d&maxResults=%d",
+		"https://www.googleapis.com/books/v1/volumes?q=%s&printType=books&startIndex=%d&maxResults=%d",
 		url.QueryEscape(query),
 		startIndex,
 		limit,
@@ -140,16 +261,29 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 	var gResp *googleBooksResponse
 	var err error
 
-	// Se a consulta não contém operadores específicos, tenta primeiro buscar no título (intitle:)
-	// Isso evita que termos comuns (como "a", "em", "jogo") caiam no OCR de texto completo de milhões de livros.
-	if !strings.Contains(q, ":") {
-		gResp, err = fetchGoogleBooks(ctx, "intitle:"+q, startIndex, limit, apiKey)
-		if err != nil || gResp == nil || len(gResp.Items) == 0 {
-			// Fallback para busca aberta geral
-			gResp, err = fetchGoogleBooks(ctx, q, startIndex, limit, apiKey)
-		}
+	// 1. Se for um ISBN, busca com operador isbn:
+	if isbn, isISBN := cleanISBN(q); isISBN {
+		gResp, err = fetchGoogleBooks(ctx, "isbn:"+isbn, startIndex, limit, apiKey)
 	} else {
+		// 2. Busca direta com todos os termos informados pelo usuário
 		gResp, err = fetchGoogleBooks(ctx, q, startIndex, limit, apiKey)
+
+		// 3. Fallback inteligente: se o usuário digitou palavras como "edição", "ed.", "volume", "nº"
+		// e a busca exata retornou vazia, tenta sem essas palavras auxiliares (ex: "turma da mônica jovem edição 50" -> "turma da mônica jovem 50")
+		if (err == nil && (gResp == nil || len(gResp.Items) == 0)) && !strings.Contains(q, ":") {
+			relaxed := strings.ToLower(q)
+			for _, term := range []string{"edição ", "edicao ", "ed. ", "ed ", "volume ", "vol. ", "vol ", "nº ", "nº", "#"} {
+				relaxed = strings.ReplaceAll(relaxed, term, " ")
+			}
+			relaxed = strings.Join(strings.Fields(relaxed), " ")
+			if relaxed != "" && relaxed != strings.ToLower(q) {
+				log.Printf("[GOOGLE BOOKS] Tentando busca relaxada: '%s'", relaxed)
+				if rResp, rErr := fetchGoogleBooks(ctx, relaxed, startIndex, limit, apiKey); rErr == nil && rResp != nil && len(rResp.Items) > 0 {
+					gResp = rResp
+					err = nil
+				}
+			}
+		}
 	}
 
 	if err != nil {
@@ -218,7 +352,10 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 		})
 	}
 
-	return results, gResp.TotalItems, nil
+	// Reordena os resultados para priorizar a edição/volume exato pesquisado
+	rankedResults := rankSearchResults(results, q)
+
+	return rankedResults, gResp.TotalItems, nil
 }
 
 func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]ExternalBookItem, int, error) {
@@ -282,7 +419,10 @@ func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]Extern
 		})
 	}
 
-	return results, olResp.NumFound, nil
+	// Reordena também os resultados da Open Library
+	rankedResults := rankSearchResults(results, q)
+
+	return rankedResults, olResp.NumFound, nil
 }
 
 // enrichWithCatalogStatus verifica se os livros encontrados já foram salvos no acervo local (por chave ou ISBN)
@@ -399,7 +539,56 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		return
 	}
 
-	// 3. Marca os livros que já estão salvos no acervo local
+	// 3. Se for a primeira página, inclui obras cadastradas localmente no sistema que correspondam à busca
+	if page == 1 && db != nil {
+		var localBooks []schemas.Book
+		pattern := "%" + strings.ToLower(q) + "%"
+		if errDb := db.Where("LOWER(title) LIKE ? OR LOWER(author) LIKE ? OR isbn = ?", pattern, pattern, q).
+			Limit(5).
+			Find(&localBooks).Error; errDb == nil && len(localBooks) > 0 {
+
+			for _, b := range localBooks {
+				key := "local:" + b.ID
+				if b.OpenLibraryKey != nil && *b.OpenLibraryKey != "" {
+					key = *b.OpenLibraryKey
+				}
+
+				// Verifica se a obra já não consta na lista externa para evitar duplicatas
+				alreadyInResults := false
+				for idx, r := range results {
+					if (r.LocalBookID != "" && r.LocalBookID == b.ID) ||
+						(r.OpenLibraryKey != "" && r.OpenLibraryKey == key) ||
+						(b.ISBN != "" && r.ISBN == b.ISBN) ||
+						(strings.EqualFold(r.Title, b.Title) && strings.EqualFold(r.Author, b.Author)) {
+						results[idx].InCatalog = true
+						results[idx].LocalBookID = b.ID
+						alreadyInResults = true
+						break
+					}
+				}
+
+				if !alreadyInResults {
+					localItem := ExternalBookItem{
+						OpenLibraryKey: key,
+						Title:          b.Title,
+						Author:         b.Author,
+						Description:    b.Description,
+						CoverURL:       b.CoverURL,
+						PageCount:      b.PageCount,
+						Genre:          b.Genre,
+						ISBN:           b.ISBN,
+						InCatalog:      true,
+						LocalBookID:    b.ID,
+					}
+					// Insere no início com destaque
+					results = append([]ExternalBookItem{localItem}, results...)
+					totalItems++
+				}
+			}
+		}
+	}
+
+	// 4. Marca os livros que já estão salvos no acervo local
 	if err := enrichWithCatalogStatus(results); err != nil {
 		sendError(c, http.StatusInternalServerError, "falha ao verificar acervo local")
 		return
