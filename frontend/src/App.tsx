@@ -187,7 +187,7 @@ function MainLayout() {
         ) : currentTab === 'social' ? (
           <SocialPage />
         ) : currentTab === 'admin' ? (
-          <AdminPage />
+          isSuperUser ? <AdminPage /> : <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
         ) : (
           <BookCatalogPage />
         )}

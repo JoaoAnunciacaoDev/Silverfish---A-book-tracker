@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/config"
+	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/schemas"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,6 +20,30 @@ func SanitizePostgresURL(rawURL string) string {
 	cleaned = strings.ReplaceAll(cleaned, "?channel_binding=require", "?")
 	cleaned = strings.ReplaceAll(cleaned, "-pooler.", ".")
 	return strings.TrimRight(cleaned, "?&")
+}
+
+// SyncSchemas sincroniza todos os schemas GORM garantindo que tabelas e colunas existam independentemente do migrate
+func SyncSchemas(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&schemas.User{},
+		&schemas.Session{},
+		&schemas.Book{},
+		&schemas.UserBook{},
+		&schemas.ReadingSession{},
+		&schemas.DailyGoal{},
+		&schemas.GoalHistory{},
+		&schemas.Achievement{},
+		&schemas.UserAchievement{},
+		&schemas.Follow{},
+		&schemas.UserPrivacySettings{},
+		&schemas.Activity{},
+		&schemas.PushSubscription{},
+		&schemas.NotificationSettings{},
+		&schemas.PatchNote{},
+		&schemas.ActivityLike{},
+		&schemas.ActivityComment{},
+		&schemas.BookReview{},
+	)
 }
 
 // Connect conecta ao banco de dados usando as configurações fornecidas e retorna uma instância do GORM DB.

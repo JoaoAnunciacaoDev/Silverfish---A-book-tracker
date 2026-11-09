@@ -103,20 +103,14 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	// O primeiro usuário cadastrado na plataforma recebe automaticamente o papel de SUPERUSER
-	role := "USER"
-	var totalUsers int64
-	if err := db.Model(&schemas.User{}).Count(&totalUsers).Error; err == nil && totalUsers == 0 {
-		role = "SUPERUSER"
-	}
-
+	// Todo usuário cadastrado inicia com papel padrão USER (promoção a SUPERUSER é feita explicitamente via SQL)
 	user := schemas.User{
 		ID:           uuid.NewString(),
 		Email:        request.Email,
 		Username:     request.Username,
 		PasswordHash: string(hash),
 		DisplayName:  request.DisplayName,
-		Role:         role,
+		Role:         "USER",
 		Timezone:     request.Timezone,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),

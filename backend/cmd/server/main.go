@@ -23,6 +23,13 @@ func main() {
 		log.Fatalf("Erro ao inicializar banco de dados: %v", err)
 	}
 
+	// Sincroniza schemas GORM garantindo que todas as tabelas e colunas existam
+	if err := database.SyncSchemas(db); err != nil {
+		log.Printf("Aviso ao sincronizar schemas GORM: %v", err)
+	} else {
+		log.Println("Schemas GORM sincronizados com sucesso!")
+	}
+
 	// 3. Executa as Migrações SQL embutidas diretamente no binário (embed.FS)
 	sqlDB, err := db.DB()
 	if err != nil {
