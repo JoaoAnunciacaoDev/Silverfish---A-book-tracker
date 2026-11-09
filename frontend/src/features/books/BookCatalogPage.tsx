@@ -38,6 +38,8 @@ export function BookCatalogPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [importingKey, setImportingKey] = useState<string | null>(null)
+  const [searchProvider, setSearchProvider] = useState<string | null>(null)
+  const [fallbackUsed, setFallbackUsed] = useState(false)
 
   const showToast = (msg: string) => {
     setToastMessage(msg)
@@ -50,6 +52,8 @@ export function BookCatalogPage() {
     if (!trimmed) {
       setActiveQuery('')
       setSearchResults([])
+      setSearchProvider(null)
+      setFallbackUsed(false)
       return
     }
 
@@ -61,6 +65,8 @@ export function BookCatalogPage() {
       const res = await searchExternalBooks(trimmed, page, 15)
       setSearchResults(res.results)
       setSearchPagination(res.pagination)
+      setSearchProvider(res.provider || null)
+      setFallbackUsed(Boolean(res.fallback_used))
     } catch (err: unknown) {
       if (err instanceof Error) {
         setSearchError(err.message)
@@ -81,6 +87,8 @@ export function BookCatalogPage() {
     setSearchQuery('')
     setActiveQuery('')
     setSearchResults([])
+    setSearchProvider(null)
+    setFallbackUsed(false)
   }
 
   // Importa / salva livro
@@ -190,7 +198,7 @@ export function BookCatalogPage() {
       {/* Resultados de Busca Global Ativa */}
       {activeQuery ? (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-300">
               Resultados para <span className="text-emerald-400 font-bold">"{activeQuery}"</span>
               {searchPagination.total_items > 0 && (
@@ -199,6 +207,15 @@ export function BookCatalogPage() {
                 </span>
               )}
             </h2>
+
+            {fallbackUsed && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-slate-300 bg-slate-900 border border-slate-800 rounded-full w-fit">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                {searchProvider === 'open_library'
+                  ? 'Catálogo Open Library ativo'
+                  : 'Acervo complementar Open Library'}
+              </span>
+            )}
           </div>
 
           {searchError && (

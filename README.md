@@ -47,7 +47,17 @@ Plataforma completa de incentivo à leitura e construção de hábitos diários 
    DB_SOURCE=silverfish.db
    SESSION_SECRET=uma_chave_secreta_aleatoria_com_mais_de_32_caracteres_aqui
    FRONTEND_URL=http://localhost:5173
+
+   # (Opcional, porém altamente recomendado)
+   GOOGLE_BOOKS_API_KEY=sua_chave_aqui
    ```
+
+> 💡 **Nota sobre Busca de Livros & Google Books API**:
+> O Silverfish integra o catálogo nacional e internacional com estratégia híbrida resiliente:
+> - **Com `GOOGLE_BOOKS_API_KEY`:** Garante cota dedicada de requisições, títulos, capas em alta resolução e sinopses em português.
+> - **Sem `GOOGLE_BOOKS_API_KEY`:** O servidor iniciará normalmente emitindo um aviso em log. As requisições serão anônimas e, caso atinjam limite temporário (HTTP 429), o sistema faz **fallback automático instantâneo para a Open Library**, garantindo que as buscas nunca parem de funcionar.
+> - **Busca de Volumes & HQs:** Quando o usuário pesquisa edições específicas (ex.: *Turma da Mônica Jovem 50* ou volumes de mangás), o backend consulta o acervo de edições da Open Library de forma complementar caso o catálogo geral não traga o volume no título.
+
 
 3. Inicie o servidor:
    ```bash

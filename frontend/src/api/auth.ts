@@ -24,9 +24,10 @@ export const authApi = {
     })
   },
 
-  getMe: () => {
+  getMe: (options?: RequestInit) => {
     return apiClient<{ user: User }>('/api/auth/me', {
       method: 'GET',
+      ...options,
     })
   },
 }

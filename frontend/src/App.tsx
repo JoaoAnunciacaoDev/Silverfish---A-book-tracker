@@ -202,7 +202,9 @@ function MainLayout() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-1 flex items-center justify-around shadow-2xl">
         <button
           onClick={() => setCurrentTab('library')}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
+          aria-label="Minha Estante de Livros"
+          title="Minha Estante"
+          className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'library'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -214,7 +216,9 @@ function MainLayout() {
 
         <button
           onClick={() => setCurrentTab('journal')}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
+          aria-label="Diário de Leitura"
+          title="Diário"
+          className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'journal'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -226,7 +230,9 @@ function MainLayout() {
 
         <button
           onClick={() => setCurrentTab('dashboard')}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
+          aria-label="Painel de Estatísticas e Metas"
+          title="Painel"
+          className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'dashboard'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -238,7 +244,9 @@ function MainLayout() {
 
         <button
           onClick={() => setCurrentTab('social')}
-          className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
+          aria-label="Comunidade de Leitores"
+          title="Social"
+          className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
             currentTab === 'social'
               ? 'text-emerald-400 bg-emerald-500/10'
               : 'text-slate-400 hover:text-slate-200'
@@ -248,29 +256,35 @@ function MainLayout() {
           <span className="text-[10px] font-semibold">Social</span>
         </button>
 
-        {isSuperUser ? (
+        {/* Aba Buscar Livros (sempre visível para todos os usuários) */}
+        <button
+          onClick={() => setCurrentTab('catalog')}
+          aria-label="Buscar e Descobrir Livros"
+          title="Buscar"
+          className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
+            currentTab === 'catalog'
+              ? 'text-emerald-400 bg-emerald-500/10'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Compass className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] font-semibold">Buscar</span>
+        </button>
+
+        {/* Atalho Admin exclusivo para SUPERUSER (sem ocultar a busca) */}
+        {isSuperUser && (
           <button
             onClick={() => setCurrentTab('admin')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
+            aria-label="Painel de Administração"
+            title="Admin"
+            className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
               currentTab === 'admin'
                 ? 'text-indigo-400 bg-indigo-500/10'
-                : 'text-slate-400 hover:text-slate-200'
+                : 'text-indigo-400/80 hover:text-indigo-200'
             }`}
           >
             <ShieldCheck className="w-5 h-5 mb-0.5" />
             <span className="text-[10px] font-semibold">Admin</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => setCurrentTab('catalog')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-2xl transition cursor-pointer ${
-              currentTab === 'catalog'
-                ? 'text-emerald-400 bg-emerald-500/10'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Compass className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-semibold">Explorar</span>
           </button>
         )}
       </nav>
@@ -296,8 +310,19 @@ function Main() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">
-        <p className="animate-pulse text-sm">Carregando sessão...</p>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 select-none">
+        <div className="flex flex-col items-center space-y-4 max-w-xs text-center">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shadow-lg shadow-emerald-950/20 animate-pulse">
+            <BookOpen className="w-7 h-7 text-emerald-400" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-base font-bold text-white tracking-wide">Silverfish</h1>
+            <div className="flex items-center justify-center space-x-2 text-xs text-slate-400">
+              <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              <span>Verificando sessão...</span>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

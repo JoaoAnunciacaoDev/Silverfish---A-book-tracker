@@ -75,6 +75,19 @@ type openLibrarySearchResponse struct {
 	} `json:"docs"`
 }
 
+type openLibraryEditionsResponse struct {
+	Entries []struct {
+		Key           string   `json:"key"`
+		Title         string   `json:"title"`
+		Subtitle      string   `json:"subtitle"`
+		NumberOfPages int      `json:"number_of_pages"`
+		PublishDate   string   `json:"publish_date"`
+		Covers        []int    `json:"covers"`
+		ISBN13        []string `json:"isbn_13"`
+		ISBN10        []string `json:"isbn_10"`
+	} `json:"entries"`
+}
+
 // Estruturas do Google Books API
 type googleBooksResponse struct {
 	TotalItems int `json:"totalItems"`
@@ -187,14 +200,33 @@ func isRelevantResult(item ExternalBookItem, query string) bool {
 	return matchedCount >= 1
 }
 
-// rankSearchResults reordena os resultados priorizando edições específicas, números de volume e termos exatos
+// rankSearchResults reordena os resultados priorizando correspondência de título, autor, edições específicas e volumes
 func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookItem {
 	if len(items) <= 1 {
 		return items
 	}
 
-	cleanQuery := stripAccents(query)
+	cleanQuery := strings.TrimSpace(stripAccents(query))
 	queryWords := strings.Fields(cleanQuery)
+
+	// Extrai palavras significativas da busca (sem stopwords e com len >= 3)
+	stopwords := map[string]bool{
+		"de": true, "da": true, "do": true, "das": true, "dos": true,
+		"em": true, "no": true, "na": true, "nos": true, "nas": true,
+		"por": true, "para": true, "com": true, "sem": true,
+		"um": true, "uma": true, "uns": true, "umas": true,
+		"o": true, "a": true, "os": true, "as": true, "e": true,
+		"livro": true, "volume": true, "edicao": true,
+	}
+
+	var meaningfulQueryWords []string
+	for _, w := range queryWords {
+		clean := strings.Trim(w, "#º°.,-()\":;'!?")
+		if len(clean) >= 3 && !stopwords[clean] {
+			meaningfulQueryWords = append(meaningfulQueryWords, clean)
+		}
+	}
+
 	var numbers []string
 	for _, w := range queryWords {
 		clean := strings.Trim(w, "#º°.,-()")
@@ -212,11 +244,11 @@ func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookIte
 	scored := make([]scoredItem, len(items))
 	for i, it := range items {
 		score := 0
-		cleanTitle := stripAccents(it.Title)
-		cleanDesc := stripAccents(it.Description)
-		cleanAuthor := stripAccents(it.Author)
+		cleanTitle := strings.TrimSpace(stripAccents(it.Title))
+		cleanDesc := strings.TrimSpace(stripAccents(it.Description))
+		cleanAuthor := strings.TrimSpace(stripAccents(it.Author))
 
-		// 1. Se o usuário buscou um número (ex: 50) e o livro contém esse número exato no título
+		// 1. Prioridade máxima para números de volume / edição pesquisados (ex: turma da monica jovem 50)
 		for _, num := range numbers {
 			hasNumberInTitle := false
 			patterns := []string{
@@ -246,24 +278,44 @@ func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookIte
 			}
 		}
 
-		// 2. Pontuação por presença das palavras da busca no título
-		for _, w := range queryWords {
-			if len(w) >= 3 && strings.Contains(cleanTitle, w) {
-				score += 20
+		// 2. Correspondência exata ou em frase do título
+		if cleanTitle == cleanQuery {
+			score += 200
+		} else if strings.Contains(cleanQuery, cleanTitle) && len(cleanTitle) >= 4 {
+			// Ex: Título "A realidade em jogo" contido na busca "realidade em jogo da jane mcgonigal"
+			score += 120
+		} else if strings.Contains(cleanTitle, cleanQuery) {
+			score += 90
+		}
+
+		// 3. Pontuação por presença das palavras significativas da busca no título
+		for _, w := range meaningfulQueryWords {
+			if strings.Contains(cleanTitle, w) {
+				score += 25
 			}
 		}
 
-		// 3. Match de autor
-		if strings.Contains(cleanAuthor, cleanQuery) {
-			score += 40
+		// 4. Match de autor (verifica se a query contém o autor ou se palavras do autor constam na busca)
+		if cleanAuthor != "" && cleanAuthor != "autor desconhecido" {
+			if strings.Contains(cleanQuery, cleanAuthor) {
+				score += 80 // O usuário digitou o nome completo do autor na query
+			} else {
+				authorWords := strings.Fields(cleanAuthor)
+				for _, aw := range authorWords {
+					cleanAW := strings.Trim(aw, "#º°.,-()\":;'!?")
+					if len(cleanAW) >= 3 && !stopwords[cleanAW] && strings.Contains(cleanQuery, cleanAW) {
+						score += 30 // Palavra do nome do autor (ex: "jane", "mcgonigal") presente na busca
+					}
+				}
+			}
 		}
 
-		// 4. Capa existente (melhor experiência visual)
+		// 5. Capa existente (melhor experiência visual)
 		if it.CoverURL != "" {
 			score += 10
 		}
 
-		// 5. ISBN existente
+		// 6. ISBN existente
 		if it.ISBN != "" {
 			score += 5
 		}
@@ -287,6 +339,10 @@ func rankSearchResults(items []ExternalBookItem, query string) []ExternalBookIte
 }
 
 func fetchGoogleBooks(ctx context.Context, query string, startIndex, limit int, apiKey string) (*googleBooksResponse, error) {
+	if apiKey == "" && cfg != nil && cfg.GoogleBooksAPIKey != "" {
+		apiKey = cfg.GoogleBooksAPIKey
+	}
+
 	apiURL := fmt.Sprintf(
 		"https://www.googleapis.com/books/v1/volumes?q=%s&printType=books&startIndex=%d&maxResults=%d",
 		url.QueryEscape(query),
@@ -298,28 +354,60 @@ func fetchGoogleBooks(ctx context.Context, query string, startIndex, limit int, 
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "SilverfishBookTracker/1.0")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var lastErr error
+	maxAttempts := 2
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("google books retornou status %d", resp.StatusCode)
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", "SilverfishBookTracker/1.0")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < maxAttempts && ctx.Err() == nil {
+				time.Sleep(300 * time.Millisecond)
+				continue
+			}
+			return nil, err
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			var gResp googleBooksResponse
+			if err := json.NewDecoder(resp.Body).Decode(&gResp); err != nil {
+				resp.Body.Close()
+				return nil, err
+			}
+			resp.Body.Close()
+			return &gResp, nil
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			resp.Body.Close()
+			log.Println("[GOOGLE BOOKS][ERRO 429] Too Many Requests: Limite excedido na API do Google Books. Verifique se GOOGLE_BOOKS_API_KEY está configurada no ambiente.")
+			lastErr = errors.New("google books retornou status 429 (Too Many Requests - GOOGLE_BOOKS_API_KEY ausente ou cota esgotada)")
+			if attempt < maxAttempts && ctx.Err() == nil {
+				time.Sleep(400 * time.Millisecond)
+				continue
+			}
+			return nil, lastErr
+		}
+
+		if resp.StatusCode == http.StatusServiceUnavailable && attempt < maxAttempts && ctx.Err() == nil {
+			resp.Body.Close()
+			time.Sleep(300 * time.Millisecond)
+			continue
+		}
+
+		status := resp.StatusCode
+		resp.Body.Close()
+		return nil, fmt.Errorf("google books retornou status %d", status)
 	}
 
-	var gResp googleBooksResponse
-	if err := json.NewDecoder(resp.Body).Decode(&gResp); err != nil {
-		return nil, err
-	}
-
-	return &gResp, nil
+	return nil, lastErr
 }
 
 func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey string) ([]ExternalBookItem, int, error) {
@@ -347,6 +435,22 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 				log.Printf("[GOOGLE BOOKS] Tentando busca relaxada: '%s'", relaxed)
 				if rResp, rErr := fetchGoogleBooks(ctx, relaxed, startIndex, limit, apiKey); rErr == nil && rResp != nil && len(rResp.Items) > 0 {
 					gResp = rResp
+					err = nil
+				}
+			}
+		}
+
+		// 4. Fallback sem conectivos/preposições (ex: "realidade em jogo da jane mcgonigal" -> "realidade em jogo jane mcgonigal")
+		if (err == nil && (gResp == nil || len(gResp.Items) == 0)) && !strings.Contains(q, ":") {
+			noPreps := strings.ToLower(q)
+			for _, prep := range []string{" da ", " de ", " do ", " das ", " dos ", " em ", " por ", " com "} {
+				noPreps = strings.ReplaceAll(noPreps, prep, " ")
+			}
+			noPreps = strings.Join(strings.Fields(noPreps), " ")
+			if noPreps != "" && noPreps != strings.ToLower(q) {
+				log.Printf("[GOOGLE BOOKS] Tentando busca sem preposições: '%s'", noPreps)
+				if npResp, npErr := fetchGoogleBooks(ctx, noPreps, startIndex, limit, apiKey); npErr == nil && npResp != nil && len(npResp.Items) > 0 {
+					gResp = npResp
 					err = nil
 				}
 			}
@@ -453,6 +557,39 @@ func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]Extern
 		return nil, 0, err
 	}
 
+	// Fallback sem preposições/conectivos se a Open Library não encontrar nada
+	if len(olResp.Docs) == 0 && !strings.Contains(q, ":") {
+		cleaned := q
+		for _, prep := range []string{" da ", " de ", " do ", " das ", " dos ", " em ", " por ", " com ", " the ", " of "} {
+			cleaned = strings.ReplaceAll(cleaned, prep, " ")
+		}
+		cleaned = strings.Join(strings.Fields(cleaned), " ")
+		if cleaned != "" && cleaned != q {
+			altURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&page=%d&limit=%d", url.QueryEscape(cleaned), page, limit)
+			if altReq, altErr := http.NewRequestWithContext(ctx, http.MethodGet, altURL, nil); altErr == nil {
+				altReq.Header.Set("User-Agent", "SilverfishBookTracker/1.0 (https://github.com/JoaoAnunciacaoDev/Silverfish)")
+				if altResp, altErr2 := client.Do(altReq); altErr2 == nil {
+					defer altResp.Body.Close()
+					if altResp.StatusCode == http.StatusOK {
+						var altOlResp openLibrarySearchResponse
+						if json.NewDecoder(altResp.Body).Decode(&altOlResp) == nil && len(altOlResp.Docs) > 0 {
+							olResp = altOlResp
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Extrai números da busca para buscar edições específicas caso o usuário procure um volume (ex: 50)
+	var numbers []string
+	for _, w := range strings.Fields(q) {
+		clean := strings.Trim(w, "#º°.,-()")
+		if _, err := strconv.Atoi(clean); err == nil && len(clean) > 0 {
+			numbers = append(numbers, clean)
+		}
+	}
+
 	results := make([]ExternalBookItem, 0, len(olResp.Docs))
 	for _, doc := range olResp.Docs {
 		author := "Autor Desconhecido"
@@ -475,15 +612,78 @@ func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]Extern
 			pages = 100
 		}
 
-		results = append(results, ExternalBookItem{
-			OpenLibraryKey: doc.Key,
-			Title:          doc.Title,
-			Author:         author,
-			CoverURL:       coverURL,
-			PageCount:      pages,
-			Year:           doc.FirstPublishYear,
-			ISBN:           isbn,
-		})
+		// Se o usuário buscou um número (ex: 50) e o registro é uma Work (/works/...),
+		// consulta as edições para trazer o volume/edição exata (ex: Turma da Mônica Jovem - O Casamento do Século - Vol.50)
+		matchedSpecificEdition := false
+		if len(numbers) > 0 && strings.HasPrefix(doc.Key, "/works/") {
+			edURL := fmt.Sprintf("https://openlibrary.org%s/editions.json?limit=25", doc.Key)
+			if edReq, edErr := http.NewRequestWithContext(ctx, http.MethodGet, edURL, nil); edErr == nil {
+				edReq.Header.Set("User-Agent", "SilverfishBookTracker/1.0 (https://github.com/JoaoAnunciacaoDev/Silverfish)")
+				edClient := &http.Client{Timeout: 4 * time.Second}
+				if edResp, edDoErr := edClient.Do(edReq); edDoErr == nil {
+					defer edResp.Body.Close()
+					if edResp.StatusCode == http.StatusOK {
+						var edData openLibraryEditionsResponse
+						if json.NewDecoder(edResp.Body).Decode(&edData) == nil && len(edData.Entries) > 0 {
+							for _, entry := range edData.Entries {
+								combinedTitle := entry.Title
+								if entry.Subtitle != "" {
+									combinedTitle = fmt.Sprintf("%s - %s", entry.Title, entry.Subtitle)
+								}
+								for _, num := range numbers {
+									if strings.Contains(combinedTitle, num) {
+										edCover := coverURL
+										if len(entry.Covers) > 0 && entry.Covers[0] > 0 {
+											edCover = fmt.Sprintf("https://covers.openlibrary.org/b/id/%d-M.jpg", entry.Covers[0])
+										}
+										edYear := doc.FirstPublishYear
+										if len(entry.PublishDate) >= 4 {
+											if y, errY := strconv.Atoi(entry.PublishDate[len(entry.PublishDate)-4:]); errY == nil {
+												edYear = y
+											}
+										}
+										edISBN := isbn
+										if len(entry.ISBN13) > 0 {
+											edISBN = entry.ISBN13[0]
+										} else if len(entry.ISBN10) > 0 {
+											edISBN = entry.ISBN10[0]
+										}
+										edPages := entry.NumberOfPages
+										if edPages <= 0 {
+											edPages = pages
+										}
+
+										results = append(results, ExternalBookItem{
+											OpenLibraryKey: entry.Key,
+											Title:          combinedTitle,
+											Author:         author,
+											CoverURL:       edCover,
+											PageCount:      edPages,
+											Year:           edYear,
+											ISBN:           edISBN,
+										})
+										matchedSpecificEdition = true
+										break
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if !matchedSpecificEdition {
+			results = append(results, ExternalBookItem{
+				OpenLibraryKey: doc.Key,
+				Title:          doc.Title,
+				Author:         author,
+				CoverURL:       coverURL,
+				PageCount:      pages,
+				Year:           doc.FirstPublishYear,
+				ISBN:           isbn,
+			})
+		}
 	}
 
 	// Reordena também os resultados da Open Library
@@ -494,7 +694,7 @@ func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]Extern
 
 // enrichWithCatalogStatus verifica se os livros encontrados já foram salvos no acervo local (por chave ou ISBN)
 func enrichWithCatalogStatus(items []ExternalBookItem) error {
-	if len(items) == 0 {
+	if db == nil || len(items) == 0 {
 		return nil
 	}
 
@@ -573,7 +773,13 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		googleKey = cfg.GoogleBooksAPIKey
 	}
 
-	log.Printf("[BUSCA EXTERNA] Iniciando busca por '%s' (página %d) | Google Books configurado: %v", q, page, googleKey != "")
+	if googleKey == "" {
+		log.Printf("[BUSCA EXTERNA] AVISO: GOOGLE_BOOKS_API_KEY ausente nas variáveis de ambiente. Consultando Google Books como requisição anônima...")
+	} else {
+		log.Printf("[BUSCA EXTERNA] GOOGLE_BOOKS_API_KEY ativa.")
+	}
+
+	log.Printf("[BUSCA EXTERNA] Iniciando busca por '%s' (página %d)", q, page)
 
 	var candidateResults []ExternalBookItem
 	var totalItems int
@@ -589,12 +795,39 @@ func SearchExternalBooksHandler(c *gin.Context) {
 				candidateResults = append(candidateResults, it)
 			}
 		}
-		totalItems = len(candidateResults)
+		if gbTotal > 0 {
+			totalItems = gbTotal
+		} else {
+			totalItems = len(candidateResults)
+		}
 	}
 
 	// 2. Se o Google Books retornou poucos ou nenhum resultado relevante (< limit),
-	// consulta a Open Library para complementar com acervo comunitário (gibis, quadrinhos, mangás e edições alternativas)
-	if len(candidateResults) < limit {
+	// OU se o usuário pesquisou por um volume/número e nenhum resultado do Google Books contém esse número no título,
+	// consulta a Open Library para complementar com acervo de edições específicas (gibis, mangás e volumes de banca)
+	needsOpenLibrary := len(candidateResults) < limit
+	if !needsOpenLibrary {
+		cleanQ := stripAccents(q)
+		for _, w := range strings.Fields(cleanQ) {
+			num := strings.Trim(w, "#º°.,-()")
+			if _, errN := strconv.Atoi(num); errN == nil && len(num) > 0 {
+				hasNumberMatch := false
+				for _, cr := range candidateResults {
+					if strings.Contains(stripAccents(cr.Title), num) {
+						hasNumberMatch = true
+						break
+					}
+				}
+				if !hasNumberMatch {
+					needsOpenLibrary = true
+					log.Printf("[BUSCA COMPLEMENTAR] Google Books não possui o volume '%s' no título. Acionando Open Library...", num)
+					break
+				}
+			}
+		}
+	}
+
+	if needsOpenLibrary {
 		log.Printf("[BUSCA COMPLEMENTAR] Consultando Open Library para '%s' (relevantes até agora: %d)...", q, len(candidateResults))
 		olResults, olTotal, olErr := searchOpenLibrary(c.Request.Context(), q, page, limit)
 		if olErr == nil && len(olResults) > 0 {
@@ -691,8 +924,21 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		totalPages = int(math.Ceil(float64(totalItems) / float64(limit)))
 	}
 
+	provider := "google_books"
+	if needsOpenLibrary && len(candidateResults) > 0 {
+		if gbErr != nil || len(gbResults) == 0 {
+			provider = "open_library"
+		} else {
+			provider = "hybrid"
+		}
+	} else if gbErr != nil {
+		provider = "open_library"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"results": results,
+		"results":       results,
+		"provider":      provider,
+		"fallback_used": needsOpenLibrary || gbErr != nil,
 		"pagination": PaginationMeta{
 			Page:       page,
 			Limit:      limit,

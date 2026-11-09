@@ -20,10 +20,16 @@ func HealthCheckHandler(c *gin.Context) {
 		return
 	}
 
+	googleBooksStatus := "unconfigured"
+	if cfg != nil && cfg.GoogleBooksAPIKey != "" {
+		googleBooksStatus = "configured"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"status":    "healthy",
-		"service":   "silverfish-api",
-		"database":  cfg.DBDriver,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"status":           "healthy",
+		"service":          "silverfish-api",
+		"database":         cfg.DBDriver,
+		"google_books_api": googleBooksStatus,
+		"timestamp":        time.Now().UTC().Format(time.RFC3339),
 	})
 }

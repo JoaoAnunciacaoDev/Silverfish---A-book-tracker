@@ -99,11 +99,45 @@ func TestIsRelevantResult(t *testing.T) {
 			item:  ExternalBookItem{Title: "O Hobbit", Author: "J.R.R. Tolkien"},
 			query: "hobbit",
 		},
+		{
+			item:  ExternalBookItem{Title: "A Realidade em Jogo", Author: "Jane McGonigal"},
+			query: "realidade em jogo da jane mcgonigal",
+		},
+		{
+			item:  ExternalBookItem{Title: "A Realidade em Jogo", Author: "Jane McGonigal"},
+			query: "realidade em jogo jane mcgonigal",
+		},
 	}
 
 	for _, tt := range validItems {
 		if !isRelevantResult(tt.item, tt.query) {
 			t.Errorf("esperava que %q fosse considerado RELEVANTE para query %q, mas foi rejeitado", tt.item.Title, tt.query)
 		}
+	}
+}
+
+func TestRankJaneMcGonigal(t *testing.T) {
+	items := []ExternalBookItem{
+		{
+			Title:  "Jogos Vorazes",
+			Author: "Suzanne Collins",
+		},
+		{
+			Title:  "A Realidade em Jogo: Por que os games nos tornam melhores e como eles podem mudar o mundo",
+			Author: "Jane McGonigal",
+		},
+		{
+			Title:  "SuperBetter",
+			Author: "Jane McGonigal",
+		},
+	}
+
+	ranked := rankSearchResults(items, "realidade em jogo da jane mcgonigal")
+	if len(ranked) != 3 {
+		t.Fatalf("esperava 3 itens, obteve %d", len(ranked))
+	}
+
+	if ranked[0].Title != "A Realidade em Jogo: Por que os games nos tornam melhores e como eles podem mudar o mundo" {
+		t.Errorf("esperava que 'A Realidade em Jogo' ficasse em primeiro lugar, mas veio: %q", ranked[0].Title)
 	}
 }

@@ -19,17 +19,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const refreshUser = async () => {
+    // Timeout de 5s para não prender o usuário eternamente caso a conexão ou backend demorem
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
+
     try {
-      const res = await authApi.getMe()
+      const res = await authApi.getMe({ signal: controller.signal })
       setUser(res.user)
     } catch {
       setUser(null)
+    } finally {
+      clearTimeout(timer)
+      setIsLoading(false)
     }
   }
 
-  // Ao carregar a página, verifica se há uma sessão ativa
+  // Ao carregar a página, valida a sessão segura via cookie HttpOnly
   useEffect(() => {
-    refreshUser().finally(() => setIsLoading(false))
+    refreshUser()
   }, [])
 
   const login = async (data: LoginInput) => {
@@ -39,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (data: RegisterInput) => {
     await authApi.register(data)
-    // Faz o login automático logo após registrar
     await login({
       email_or_username: data.username,
       password: data.password,

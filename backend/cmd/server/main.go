@@ -12,9 +12,9 @@ func main() {
 	// 1. Configurações
 	cfg := config.Load()
 	if cfg.GoogleBooksAPIKey != "" {
-		log.Println("Provedor Google Books: ativado (chave encontrada)")
+		log.Println("[CONFIG] Provedor Google Books: ATIVADO (chave GOOGLE_BOOKS_API_KEY encontrada)")
 	} else {
-		log.Println("Provedor Google Books: sem chave configurada (usando Open Library)")
+		log.Println("[CONFIG][AVISO] GOOGLE_BOOKS_API_KEY NÃO CONFIGURADA! Requisições ao Google Books serão não-autenticadas e podem sofrer bloqueio por cota (HTTP 429). Defina a variável GOOGLE_BOOKS_API_KEY no seu .env ou nas variáveis do host.")
 	}
 
 	// 2. Banco de dados (com suporte a SQLite e PostgreSQL + Foreign Keys ativadas)

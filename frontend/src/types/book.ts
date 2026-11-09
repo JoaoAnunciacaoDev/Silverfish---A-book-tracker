@@ -42,6 +42,8 @@ export interface ExternalBookItem {
 export interface SearchExternalResponse {
   results: ExternalBookItem[]
   pagination: PaginationMeta
+  provider?: 'google_books' | 'open_library' | 'hybrid' | string
+  fallback_used?: boolean
 }
 
 export interface CreateBookInput {
