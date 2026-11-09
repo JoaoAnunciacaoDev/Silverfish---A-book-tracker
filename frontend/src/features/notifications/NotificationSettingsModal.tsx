@@ -117,6 +117,9 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
 
       // 2. Obtém chave pública VAPID do backend
       const { vapid_public_key } = await getVapidPublicKey()
+      if (!vapid_public_key) {
+        throw new Error('Serviço de notificações Web Push não configurado no servidor (VAPID_PUBLIC_KEY ausente).')
+      }
 
       // Converte VAPID base64url para Uint8Array
       const padding = '='.repeat((4 - (vapid_public_key.length % 4)) % 4)

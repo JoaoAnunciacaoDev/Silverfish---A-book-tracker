@@ -13,24 +13,22 @@ import (
 	"github.com/google/uuid"
 )
 
-// DefaultVapidPublicKey padrão para desenvolvimento local (chave válida P-256 / secp256r1 de 65 bytes)
-const DefaultVapidPublicKey = "BNFzvsVDIdwqRo7OrIQagBEFJW8n8M1IqEKOjJqY2yZxn4FBahrsxumrKbqNmG8VIMcxPopJBml4sP4eYXRg6zw"
-
 func getVapidPublicKey() string {
 	if cfg != nil && cfg.VapidPublicKey != "" {
 		return cfg.VapidPublicKey
 	}
-	val := strings.TrimSpace(os.Getenv("VAPID_PUBLIC_KEY"))
-	if val != "" {
-		return val
-	}
-	return DefaultVapidPublicKey
+	return strings.TrimSpace(os.Getenv("VAPID_PUBLIC_KEY"))
 }
 
 // GetVapidPublicKeyHandler expõe a chave pública necessária para o Service Worker
 func GetVapidPublicKeyHandler(c *gin.Context) {
+	key := getVapidPublicKey()
+	if key == "" {
+		sendError(c, http.StatusServiceUnavailable, "chave pública VAPID não configurada no servidor (defina VAPID_PUBLIC_KEY no ambiente)")
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"vapid_public_key": getVapidPublicKey(),
+		"vapid_public_key": key,
 	})
 }
 
