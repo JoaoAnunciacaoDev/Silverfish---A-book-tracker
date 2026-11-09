@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/schemas"
@@ -470,6 +471,27 @@ func parseGoogleBookItem(item googleBookVolume) ExternalBookItem {
 	}
 }
 
+// prepareSearchTerms limpa pontuações como dois-pontos de subtítulos (ex: "Manual do Game UX: Um guia...")
+// que quebram os seletores de campo do Google Books ("UX:"), e extrai o título principal antes do separador.
+func prepareSearchTerms(q string) (cleaned string, mainTitle string) {
+	trimmed := strings.TrimSpace(q)
+	lower := strings.ToLower(trimmed)
+
+	// Se for busca intencional com prefixos reservados, preserva
+	if strings.HasPrefix(lower, "isbn:") || strings.HasPrefix(lower, "intitle:") || strings.HasPrefix(lower, "inauthor:") || strings.HasPrefix(lower, "subject:") {
+		return trimmed, ""
+	}
+
+	if strings.Contains(trimmed, ":") {
+		parts := strings.SplitN(trimmed, ":", 2)
+		mainTitle = strings.TrimSpace(parts[0])
+		cleaned = strings.Join(strings.Fields(strings.ReplaceAll(trimmed, ":", " ")), " ")
+		return cleaned, mainTitle
+	}
+
+	return trimmed, ""
+}
+
 func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey string) ([]ExternalBookItem, int, error) {
 	startIndex := (page - 1) * limit
 
@@ -480,7 +502,7 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 			return nil, 0, err
 		}
 		if gResp == nil || len(gResp.Items) == 0 {
-			return nil, 0, nil
+			return []ExternalBookItem{}, 0, nil
 		}
 		var results []ExternalBookItem
 		for _, it := range gResp.Items {
@@ -489,20 +511,32 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 		return results, gResp.TotalItems, nil
 	}
 
+	cleanedQuery, mainTitle := prepareSearchTerms(q)
+
 	seenIDs := make(map[string]bool)
 	var candidateItems []ExternalBookItem
 	totalEstimate := 0
 
-	// 2. Busca com intitle: quando a query não possui operadores especiais.
-	// Isso garante que obras como "realidade em jogo", "o hobbit", "a hora da estrela"
-	// sejam encontradas pelo título exato de imediato, em vez de ficarem perdidas em buscas de texto completo.
-	if !strings.Contains(q, ":") {
-		intitleQuery := "intitle:" + q
+	// 2. Busca com intitle:
+	// Prioriza o mainTitle (caso o usuário tenha inserido título: subtítulo) ou a busca limpa inteira
+	intitleCandidates := []string{}
+	if mainTitle != "" && len(mainTitle) >= 3 {
+		intitleCandidates = append(intitleCandidates, mainTitle)
+	}
+	if cleanedQuery != "" && cleanedQuery != mainTitle {
+		intitleCandidates = append(intitleCandidates, cleanedQuery)
+	}
+
+	for _, itQuery := range intitleCandidates {
+		intitleQuery := "intitle:" + itQuery
 		if titleResp, tErr := fetchGoogleBooks(ctx, intitleQuery, startIndex, limit, apiKey); tErr == nil && titleResp != nil {
 			if titleResp.TotalItems > totalEstimate {
 				totalEstimate = titleResp.TotalItems
 			}
 			for _, it := range titleResp.Items {
+				if seenIDs[it.ID] {
+					continue
+				}
 				seenIDs[it.ID] = true
 				parsed := parseGoogleBookItem(it)
 				if isRelevantResult(parsed, q) {
@@ -512,8 +546,8 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 		}
 	}
 
-	// 3. Busca geral (q) para capturar autores, temas ou títulos não indexados perfeitamente pelo intitle:
-	generalResp, gErr := fetchGoogleBooks(ctx, q, startIndex, limit, apiKey)
+	// 3. Busca geral com a query higienizada (sem dois-pontos soltos que quebram o parser do Google Books)
+	generalResp, gErr := fetchGoogleBooks(ctx, cleanedQuery, startIndex, limit, apiKey)
 	if gErr == nil && generalResp != nil {
 		if generalResp.TotalItems > totalEstimate {
 			totalEstimate = generalResp.TotalItems
@@ -531,13 +565,17 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 	}
 
 	// 4. Fallback sem conectivos/preposições (ex: "realidade em jogo da jane mcgonigal" -> "realidade em jogo jane mcgonigal")
-	if len(candidateItems) == 0 && !strings.Contains(q, ":") {
-		noPreps := strings.ToLower(q)
+	if len(candidateItems) == 0 {
+		targetQuery := cleanedQuery
+		if mainTitle != "" {
+			targetQuery = mainTitle
+		}
+		noPreps := strings.ToLower(targetQuery)
 		for _, prep := range []string{" da ", " de ", " do ", " das ", " dos ", " em ", " por ", " com "} {
 			noPreps = strings.ReplaceAll(noPreps, prep, " ")
 		}
 		noPreps = strings.Join(strings.Fields(noPreps), " ")
-		if noPreps != "" && noPreps != strings.ToLower(q) {
+		if noPreps != "" && noPreps != strings.ToLower(targetQuery) {
 			if npResp, npErr := fetchGoogleBooks(ctx, noPreps, startIndex, limit, apiKey); npErr == nil && npResp != nil {
 				for _, it := range npResp.Items {
 					if seenIDs[it.ID] {
@@ -554,17 +592,21 @@ func searchGoogleBooks(ctx context.Context, q string, page, limit int, apiKey st
 	}
 
 	if gErr != nil && len(candidateItems) == 0 {
-		return nil, 0, gErr
+		return []ExternalBookItem{}, 0, gErr
 	}
 
 	// Reordena os resultados priorizando a melhor correspondência
 	rankedResults := rankSearchResults(candidateItems, q)
+	if rankedResults == nil {
+		rankedResults = []ExternalBookItem{}
+	}
 
 	return rankedResults, totalEstimate, nil
 }
 
 func searchOpenLibrary(ctx context.Context, q string, page, limit int) ([]ExternalBookItem, int, error) {
-	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&page=%d&limit=%d", url.QueryEscape(q), page, limit)
+	cleanedQuery, _ := prepareSearchTerms(q)
+	apiURL := fmt.Sprintf("https://openlibrary.org/search.json?q=%s&page=%d&limit=%d", url.QueryEscape(cleanedQuery), page, limit)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
@@ -785,7 +827,7 @@ func enrichWithCatalogStatus(items []ExternalBookItem) error {
 	return nil
 }
 
-// SearchExternalBooksHandler busca no Google Books (acervo brasileiro) com fallback para Open Library
+// SearchExternalBooksHandler busca no Google Books, Open Library ou em ambos concorrentemente (híbrido)
 func SearchExternalBooksHandler(c *gin.Context) {
 	q := strings.TrimSpace(c.Query("q"))
 	if q == "" {
@@ -802,6 +844,8 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		limit = 15
 	}
 
+	providerParam := strings.ToLower(strings.TrimSpace(c.DefaultQuery("provider", "all")))
+
 	googleKey := ""
 	if cfg != nil {
 		googleKey = cfg.GoogleBooksAPIKey
@@ -813,92 +857,128 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		log.Printf("[BUSCA EXTERNA] GOOGLE_BOOKS_API_KEY ativa.")
 	}
 
-	log.Printf("[BUSCA EXTERNA] Iniciando busca por '%s' (página %d)", q, page)
+	log.Printf("[BUSCA EXTERNA] Iniciando busca por '%s' (página %d, provedor '%s')", q, page, providerParam)
 
-	var candidateResults []ExternalBookItem
-	var totalItems int
+	var (
+		candidateResults []ExternalBookItem
+		totalItems       int
+		providerUsed     string
+		fallbackUsed     bool
+	)
 
-	// 1. Tenta buscar no Google Books (prioridade para catálogo nacional)
-	gbResults, gbTotal, gbErr := searchGoogleBooks(c.Request.Context(), q, page, limit, googleKey)
-	if gbErr != nil {
-		log.Printf("[GOOGLE BOOKS] Erro na consulta: %v", gbErr)
-	} else {
-		log.Printf("[GOOGLE BOOKS] Itens relevantes retornados: %d (Total bruto estimado: %d)", len(gbResults), gbTotal)
-		candidateResults = append(candidateResults, gbResults...)
-
-		// Se a busca retornou menos itens que o limite, esta é a última página de resultados
-		if len(gbResults) < limit {
+	switch providerParam {
+	case "google", "google_books":
+		gbResults, gbTotal, gbErr := searchGoogleBooks(c.Request.Context(), q, page, limit, googleKey)
+		if gbErr != nil && len(gbResults) == 0 {
+			sendError(c, http.StatusBadGateway, "não foi possível consultar o Google Books no momento")
+			return
+		}
+		candidateResults = gbResults
+		providerUsed = "google_books"
+		totalItems = gbTotal
+		if page == 1 && len(gbResults) < limit {
+			totalItems = len(gbResults)
+		} else if totalItems < (page-1)*limit+len(gbResults) {
 			totalItems = (page-1)*limit + len(gbResults)
-		} else {
-			if gbTotal > (page * limit) {
-				totalItems = gbTotal
-			} else {
-				totalItems = (page * limit) + 1
-			}
 		}
-	}
 
-	// 2. Se o Google Books retornou poucos ou nenhum resultado relevante (< limit),
-	// OU se o usuário pesquisou por um volume/número e nenhum resultado do Google Books contém esse número no título,
-	// consulta a Open Library para complementar com acervo de edições específicas (gibis, mangás e volumes de banca)
-	needsOpenLibrary := len(candidateResults) < limit
-	if !needsOpenLibrary {
-		cleanQ := stripAccents(q)
-		for _, w := range strings.Fields(cleanQ) {
-			num := strings.Trim(w, "#º°.,-()")
-			if _, errN := strconv.Atoi(num); errN == nil && len(num) > 0 {
-				hasNumberMatch := false
-				for _, cr := range candidateResults {
-					if strings.Contains(stripAccents(cr.Title), num) {
-						hasNumberMatch = true
-						break
-					}
-				}
-				if !hasNumberMatch {
-					needsOpenLibrary = true
-					log.Printf("[BUSCA COMPLEMENTAR] Google Books não possui o volume '%s' no título. Acionando Open Library...", num)
-					break
-				}
-			}
-		}
-	}
-
-	if needsOpenLibrary {
-		log.Printf("[BUSCA COMPLEMENTAR] Consultando Open Library para '%s' (relevantes até agora: %d)...", q, len(candidateResults))
+	case "openlibrary", "open_library":
 		olResults, olTotal, olErr := searchOpenLibrary(c.Request.Context(), q, page, limit)
-		if olErr == nil && len(olResults) > 0 {
-			for _, it := range olResults {
-				if isRelevantResult(it, q) {
-					// Evita duplicatas com livros já adicionados do Google Books
-					isDuplicate := false
-					for _, existing := range candidateResults {
-						if (existing.ISBN != "" && it.ISBN != "" && existing.ISBN == it.ISBN) ||
-							(strings.EqualFold(stripAccents(existing.Title), stripAccents(it.Title)) &&
-								strings.EqualFold(stripAccents(existing.Author), stripAccents(it.Author))) {
-							isDuplicate = true
-							break
-						}
-					}
-					if !isDuplicate {
-						candidateResults = append(candidateResults, it)
-					}
-				}
-			}
-			minTotal := (page-1)*limit + len(candidateResults)
-			if totalItems < minTotal {
-				totalItems = minTotal
-			}
-			if len(candidateResults) >= limit && olTotal > totalItems {
-				totalItems = olTotal
-			}
-		} else if olErr != nil {
-			log.Printf("[OPEN LIBRARY] Erro na consulta: %v", olErr)
+		if olErr != nil && len(olResults) == 0 {
+			sendError(c, http.StatusBadGateway, "não foi possível consultar a Open Library no momento")
+			return
 		}
-	}
+		candidateResults = olResults
+		providerUsed = "open_library"
+		totalItems = olTotal
+		if page == 1 && len(olResults) < limit {
+			totalItems = len(olResults)
+		} else if totalItems < (page-1)*limit+len(olResults) {
+			totalItems = (page-1)*limit + len(olResults)
+		}
 
-	if len(candidateResults) == 0 && gbErr != nil {
-		sendError(c, http.StatusBadGateway, "não foi possível consultar os provedores de livros no momento")
-		return
+	default: // "all" ou híbrido (Google Books + Open Library simultâneos)
+		providerUsed = "hybrid"
+		var (
+			gbResults []ExternalBookItem
+			gbTotal   int
+			gbErr     error
+			olResults []ExternalBookItem
+			olTotal   int
+			olErr     error
+			wg        sync.WaitGroup
+		)
+
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			gbResults, gbTotal, gbErr = searchGoogleBooks(c.Request.Context(), q, page, limit, googleKey)
+		}()
+		go func() {
+			defer wg.Done()
+			olResults, olTotal, olErr = searchOpenLibrary(c.Request.Context(), q, page, limit)
+		}()
+		wg.Wait()
+
+		if gbErr != nil {
+			log.Printf("[GOOGLE BOOKS] Erro na consulta híbrida: %v", gbErr)
+		}
+		if olErr != nil {
+			log.Printf("[OPEN LIBRARY] Erro na consulta híbrida: %v", olErr)
+		}
+
+		if (gbErr != nil && olErr != nil) && len(gbResults) == 0 && len(olResults) == 0 {
+			sendError(c, http.StatusBadGateway, "não foi possível consultar os provedores de livros no momento")
+			return
+		}
+
+		// Junta os resultados evitando duplicatas estritas de ISBN ou título exato + autor exato
+		seenMap := make(map[string]bool)
+		for _, it := range gbResults {
+			key := fmt.Sprintf("%s|%s", stripAccents(it.Title), stripAccents(it.Author))
+			if it.ISBN != "" {
+				key = it.ISBN
+			}
+			seenMap[key] = true
+			candidateResults = append(candidateResults, it)
+		}
+
+		for _, it := range olResults {
+			key := fmt.Sprintf("%s|%s", stripAccents(it.Title), stripAccents(it.Author))
+			if it.ISBN != "" {
+				key = it.ISBN
+			}
+			if seenMap[key] {
+				continue
+			}
+			seenMap[key] = true
+			candidateResults = append(candidateResults, it)
+		}
+
+		estimatedTotal := gbTotal
+		if olTotal > estimatedTotal {
+			estimatedTotal = olTotal
+		}
+
+		// Cálculo estável de paginação
+		if page == 1 && len(candidateResults) < limit {
+			totalItems = len(candidateResults)
+		} else {
+			totalItems = estimatedTotal
+			minItems := (page-1)*limit + len(candidateResults)
+			if totalItems < minItems {
+				totalItems = minItems
+			}
+		}
+
+		if gbErr != nil && len(olResults) > 0 {
+			providerUsed = "open_library"
+			fallbackUsed = true
+		} else if len(olResults) > 0 && len(gbResults) == 0 {
+			providerUsed = "open_library"
+		} else if len(gbResults) > 0 && len(olResults) == 0 {
+			providerUsed = "google_books"
+		}
 	}
 
 	// Reordena os resultados estritamente relevantes pela melhor correspondência da query e edições numéricas
@@ -964,21 +1044,14 @@ func SearchExternalBooksHandler(c *gin.Context) {
 		totalPages = int(math.Ceil(float64(totalItems) / float64(limit)))
 	}
 
-	provider := "google_books"
-	if needsOpenLibrary && len(candidateResults) > 0 {
-		if gbErr != nil || len(gbResults) == 0 {
-			provider = "open_library"
-		} else {
-			provider = "hybrid"
-		}
-	} else if gbErr != nil {
-		provider = "open_library"
+	if results == nil {
+		results = []ExternalBookItem{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"results":       results,
-		"provider":      provider,
-		"fallback_used": needsOpenLibrary || gbErr != nil,
+		"provider":      providerUsed,
+		"fallback_used": fallbackUsed,
 		"pagination": PaginationMeta{
 			Page:       page,
 			Limit:      limit,

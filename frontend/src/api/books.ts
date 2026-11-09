@@ -37,12 +37,14 @@ export async function createBook(input: CreateBookInput): Promise<{ message: str
 export async function searchExternalBooks(
   q: string,
   page = 1,
-  limit = 15
+  limit = 15,
+  provider: 'all' | 'google' | 'openlibrary' = 'all'
 ): Promise<SearchExternalResponse> {
   const query = new URLSearchParams({
     q,
     page: page.toString(),
     limit: limit.toString(),
+    provider,
   })
   return apiClient<SearchExternalResponse>(`/api/books/search-external?${query.toString()}`)
 }

@@ -11,6 +11,7 @@ import { PrivacySettingsModal } from '@/features/social/PrivacySettingsModal'
 import { PatchNotesModal } from '@/features/patchNotes/PatchNotesModal'
 import { NotificationSettingsModal } from '@/features/notifications/NotificationSettingsModal'
 import { Footer } from '@/components/layout/Footer'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   BookOpen,
   Compass,
@@ -178,19 +179,21 @@ function MainLayout() {
 
       {/* Conteúdo Principal com padding inferior para a barra mobile */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 pb-24 md:pb-8">
-        {currentTab === 'library' ? (
-          <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
-        ) : currentTab === 'journal' ? (
-          <JournalPage />
-        ) : currentTab === 'dashboard' ? (
-          <DashboardPage />
-        ) : currentTab === 'social' ? (
-          <SocialPage />
-        ) : currentTab === 'admin' ? (
-          isSuperUser ? <AdminPage /> : <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
-        ) : (
-          <BookCatalogPage />
-        )}
+        <ErrorBoundary fallbackTitle="Ocorreu um erro ao carregar esta página">
+          {currentTab === 'library' ? (
+            <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
+          ) : currentTab === 'journal' ? (
+            <JournalPage />
+          ) : currentTab === 'dashboard' ? (
+            <DashboardPage />
+          ) : currentTab === 'social' ? (
+            <SocialPage />
+          ) : currentTab === 'admin' ? (
+            isSuperUser ? <AdminPage /> : <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
+          ) : (
+            <BookCatalogPage />
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Rodapé com créditos */}

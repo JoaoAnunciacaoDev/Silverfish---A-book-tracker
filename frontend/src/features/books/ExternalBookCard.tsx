@@ -55,15 +55,27 @@ export function ExternalBookCard({ item, onImport, isImporting }: ExternalBookCa
 
       {/* Ação: Adicionar à Estante */}
       <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between gap-2">
-        {item.isbn ? (
-          <span className="text-[11px] text-slate-500 font-medium truncate max-w-[120px]">
-            ISBN {item.isbn}
-          </span>
-        ) : (
-          <span className="text-[11px] text-slate-500 font-medium">
-            Busca Online
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 min-w-0">
+          {item.open_library_key?.startsWith('google:') ? (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-950/60 text-sky-400 border border-sky-800/50 shrink-0">
+              Google Books
+            </span>
+          ) : item.open_library_key?.startsWith('local:') ? (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 shrink-0">
+              Acervo Local
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-950/60 text-amber-400 border border-amber-800/50 shrink-0">
+              Open Library
+            </span>
+          )}
+
+          {item.isbn ? (
+            <span className="text-[11px] text-slate-500 font-medium truncate max-w-[100px]">
+              {item.isbn}
+            </span>
+          ) : null}
+        </div>
 
         <button
           onClick={() => onImport(item)}

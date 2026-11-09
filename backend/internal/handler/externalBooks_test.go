@@ -1,9 +1,13 @@
 package handler
 
 import (
-	"context"
-	"os"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestCleanISBN(t *testing.T) {
@@ -144,21 +148,21 @@ func TestRankJaneMcGonigal(t *testing.T) {
 	}
 }
 
-func TestPaginationGoogleBooks(t *testing.T) {
-	apiKey := os.Getenv("GOOGLE_BOOKS_API_KEY")
-	if apiKey == "" && cfg != nil {
-		apiKey = cfg.GoogleBooksAPIKey
-	}
-	if apiKey == "" {
-		t.Skip("Pulando teste com API externa pois GOOGLE_BOOKS_API_KEY não está no ambiente")
+func TestSearchManualGameUX(t *testing.T) {
+	q := "Manual do Game UX: Um guia para designers e curiosos"
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req, _ := http.NewRequest("GET", "/api/books/search-external?q="+url.QueryEscape(q), nil)
+	c.Request = req
+
+	SearchExternalBooksHandler(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperava status 200, obteve %d", w.Code)
 	}
 
-	// Testa query curta que só tem 1 página de títulos reais
-	p1, total1, _ := searchGoogleBooks(context.Background(), "realidade em jogo", 1, 15, apiKey)
-	t.Logf("realidade em jogo: p1=%d items, totalEstimate=%d", len(p1), total1)
-
-	// Testa query ampla que tem várias páginas reais
-	p1Broad, totalBroad1, _ := searchGoogleBooks(context.Background(), "machado de assis", 1, 15, apiKey)
-	p2Broad, totalBroad2, _ := searchGoogleBooks(context.Background(), "machado de assis", 2, 15, apiKey)
-	t.Logf("machado de assis: p1=%d items (total=%d), p2=%d items (total=%d)", len(p1Broad), totalBroad1, len(p2Broad), totalBroad2)
+	body := w.Body.String()
+	if strings.Contains(body, `"results":null`) {
+		t.Errorf("resposta não pode conter 'results': null, obteve: %s", body)
+	}
 }

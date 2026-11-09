@@ -11,16 +11,53 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
   Compass,
   Info,
+  Layers,
+  Library,
   Loader2,
   Plus,
   Search,
+  X,
 } from 'lucide-react'
+
+function getPaginationPages(currentPage: number, totalPages: number): (number | 'ellipsis')[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: Math.max(totalPages, 1) }, (_, i) => i + 1)
+  }
+
+  const pages: (number | 'ellipsis')[] = []
+  pages.push(1)
+
+  if (currentPage > 3) {
+    pages.push('ellipsis')
+  }
+
+  const start = Math.max(2, currentPage - 1)
+  const end = Math.min(totalPages - 1, currentPage + 1)
+
+  for (let i = start; i <= end; i++) {
+    if (!pages.includes(i)) {
+      pages.push(i)
+    }
+  }
+
+  if (currentPage < totalPages - 2) {
+    pages.push('ellipsis')
+  }
+
+  if (!pages.includes(totalPages)) {
+    pages.push(totalPages)
+  }
+
+  return pages
+}
 
 export function BookCatalogPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeQuery, setActiveQuery] = useState('')
+  const [selectedProvider, setSelectedProvider] = useState<'all' | 'google' | 'openlibrary'>('all')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [bookToAddToLibrary, setBookToAddToLibrary] = useState<Book | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -47,7 +84,11 @@ export function BookCatalogPage() {
   }
 
   // Executa busca global paginada
-  const executeSearch = async (query: string, page = 1) => {
+  const executeSearch = async (
+    query: string,
+    page = 1,
+    provider: 'all' | 'google' | 'openlibrary' = selectedProvider
+  ) => {
     const trimmed = query.trim()
     if (!trimmed) {
       setActiveQuery('')
@@ -62,9 +103,18 @@ export function BookCatalogPage() {
       setSearchError(null)
       setActiveQuery(trimmed)
 
-      const res = await searchExternalBooks(trimmed, page, 15)
-      setSearchResults(res.results)
-      setSearchPagination(res.pagination)
+      const res = await searchExternalBooks(trimmed, page, 15, provider)
+      setSearchResults(res.results || [])
+      setSearchPagination(
+        res.pagination || {
+          page,
+          limit: 15,
+          total_items: 0,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        }
+      )
       setSearchProvider(res.provider || null)
       setFallbackUsed(Boolean(res.fallback_used))
     } catch (err: unknown) {
@@ -80,7 +130,14 @@ export function BookCatalogPage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    executeSearch(searchQuery, 1)
+    executeSearch(searchQuery, 1, selectedProvider)
+  }
+
+  const handleProviderChange = (newProvider: 'all' | 'google' | 'openlibrary') => {
+    setSelectedProvider(newProvider)
+    if (activeQuery) {
+      executeSearch(activeQuery, 1, newProvider)
+    }
   }
 
   const handleClearSearch = () => {
@@ -166,34 +223,92 @@ export function BookCatalogPage() {
       </div>
 
       {/* Barra de Pesquisa Unificada */}
-      <form onSubmit={handleSearchSubmit} className="relative">
-        <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Digite o título do livro, autor ou ISBN e aperte Enter..."
-          className="w-full pl-12 pr-28 py-3.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-hidden transition shadow-inner"
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1.5">
-          {activeQuery && (
+      <div className="space-y-3">
+        <form onSubmit={handleSearchSubmit} className="relative">
+          <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onChange={(e) => {
+              const val = e.target.value
+              setSearchQuery(val)
+              if (!val.trim() && activeQuery) {
+                handleClearSearch()
+              }
+            }}
+            placeholder="Digite o título do livro, autor ou ISBN e aperte Enter..."
+            className="w-full pl-12 pr-28 py-3.5 bg-slate-900 border border-slate-800 focus:border-emerald-500 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-hidden transition shadow-inner"
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1.5">
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                aria-label="Limpar campo de busca"
+                title="Limpar busca"
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
             <button
-              type="button"
-              onClick={handleClearSearch}
-              className="px-2.5 py-1 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              type="submit"
+              disabled={isSearching || !searchQuery.trim()}
+              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-semibold rounded-xl transition cursor-pointer disabled:cursor-not-allowed"
             >
-              Limpar
+              {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Buscar'}
             </button>
-          )}
+          </div>
+        </form>
+
+        {/* Seleção de Catálogo / Provedor */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <span className="text-slate-500 text-xs font-medium shrink-0 flex items-center gap-1">
+            <Library className="w-3.5 h-3.5 text-slate-400" />
+            Acervo:
+          </span>
+
           <button
-            type="submit"
-            disabled={isSearching || !searchQuery.trim()}
-            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white disabled:text-slate-500 text-xs font-semibold rounded-xl transition cursor-pointer disabled:cursor-not-allowed"
+            type="button"
+            onClick={() => handleProviderChange('all')}
+            className={`px-3 py-1.5 rounded-xl font-medium transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              selectedProvider === 'all'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
           >
-            {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Buscar'}
+            <span>Todos os Acervos (Híbrido)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleProviderChange('google')}
+            className={`px-3 py-1.5 rounded-xl font-medium transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              selectedProvider === 'google'
+                ? 'bg-sky-600 text-white shadow-sm'
+                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <span>Google Books (Livros & Sinopses)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleProviderChange('openlibrary')}
+            className={`px-3 py-1.5 rounded-xl font-medium transition cursor-pointer shrink-0 flex items-center gap-1.5 ${
+              selectedProvider === 'openlibrary'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Open Library (HQs, Gibis, Mangás & Edições)</span>
           </button>
         </div>
-      </form>
+      </div>
 
       {/* Resultados de Busca Global Ativa */}
       {activeQuery ? (
@@ -239,13 +354,20 @@ export function BookCatalogPage() {
                     Não há mais livros nesta página para "{activeQuery}".
                   </p>
                 </div>
-                <div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
-                    onClick={() => executeSearch(activeQuery, searchPagination.page - 1)}
+                    onClick={() => executeSearch(activeQuery, 1, selectedProvider)}
+                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
+                  >
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                    <span>Voltar ao Início (Página 1)</span>
+                  </button>
+                  <button
+                    onClick={() => executeSearch(activeQuery, searchPagination.page - 1, selectedProvider)}
                     className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition cursor-pointer"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
-                    <span>Voltar para a Página Anterior</span>
+                    <span>Página Anterior</span>
                   </button>
                 </div>
               </div>
@@ -270,7 +392,7 @@ export function BookCatalogPage() {
                       Revistas em quadrinhos mensais de banca (como gibis da Panini/Turma da Mônica Jovem) e edições raras ou independentes costumam não ter registro ISBN individual.
                     </p>
                     <p>
-                      Você pode cadastrar essa edição específica diretamente abaixo para adicioná-la à sua estante:
+                      Você pode alternar para a aba <strong>Open Library</strong> acima para buscar edições de quadrinhos ou cadastrar manualmente abaixo:
                     </p>
                   </div>
                 </div>
@@ -288,9 +410,9 @@ export function BookCatalogPage() {
             )
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {searchResults.map((item) => (
+              {(searchResults || []).map((item, index) => (
                 <ExternalBookCard
-                  key={item.open_library_key}
+                  key={item.open_library_key || item.isbn || `book-${index}`}
                   item={item}
                   onImport={handleImport}
                   isImporting={importingKey === item.open_library_key}
@@ -301,35 +423,107 @@ export function BookCatalogPage() {
 
           {/* Paginação dos Resultados da Busca */}
           {(searchPagination.total_pages > 1 || searchPagination.page > 1) && (
-            <div className="flex items-center justify-between border-t border-slate-800 pt-4">
-              <p className="text-xs text-slate-400">
-                Página <span className="font-semibold text-white">{searchPagination.page}</span>
-                {searchPagination.total_pages > 0 && (
-                  <> de <span className="font-semibold text-white">{searchPagination.total_pages}</span></>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-800 pt-5">
+              <div className="flex items-center space-x-2 text-xs text-slate-400">
+                <span>
+                  Página <strong className="text-white font-semibold">{searchPagination.page}</strong> de{' '}
+                  <strong className="text-white font-semibold">{Math.max(searchPagination.total_pages, 1)}</strong>
+                </span>
+                {searchPagination.total_items > 0 && (
+                  <span className="text-slate-500 hidden sm:inline">• {searchPagination.total_items} resultados</span>
                 )}
-              </p>
+              </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                {/* Botão Voltar ao Início */}
+                {searchPagination.page > 1 && (
+                  <button
+                    disabled={isSearching}
+                    onClick={() => executeSearch(activeQuery, 1, selectedProvider)}
+                    title="Voltar à primeira página"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Início</span>
+                  </button>
+                )}
+
+                {/* Botão Anterior */}
                 <button
                   disabled={!searchPagination.has_prev || isSearching}
-                  onClick={() => executeSearch(activeQuery, searchPagination.page - 1)}
-                  className="inline-flex items-center space-x-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  onClick={() => executeSearch(activeQuery, searchPagination.page - 1, selectedProvider)}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  aria-label="Página anterior"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
-                  <span>Anterior</span>
+                  <span className="hidden sm:inline">Anterior</span>
                 </button>
 
+                {/* Números das Páginas */}
+                {getPaginationPages(searchPagination.page, searchPagination.total_pages).map((p, idx) => {
+                  if (p === 'ellipsis') {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-slate-600 select-none">
+                        …
+                      </span>
+                    )
+                  }
+                  const isCurrent = p === searchPagination.page
+                  return (
+                    <button
+                      key={`page-${p}`}
+                      disabled={isSearching}
+                      onClick={() => executeSearch(activeQuery, p, selectedProvider)}
+                      className={`w-8 h-8 rounded-xl text-xs font-semibold flex items-center justify-center transition cursor-pointer ${
+                        isCurrent
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800'
+                      }`}
+                      aria-current={isCurrent ? 'page' : undefined}
+                    >
+                      {p}
+                    </button>
+                  )
+                })}
+
+                {/* Botão Próxima */}
                 <button
                   disabled={!searchPagination.has_next || isSearching}
-                  onClick={() => executeSearch(activeQuery, searchPagination.page + 1)}
-                  className="inline-flex items-center space-x-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  onClick={() => executeSearch(activeQuery, searchPagination.page + 1, selectedProvider)}
+                  className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                  aria-label="Próxima página"
                 >
-                  <span>Próxima</span>
+                  <span className="hidden sm:inline">Próxima</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           )}
+        </div>
+      ) : searchQuery.trim() !== '' ? (
+        /* Estado Digitador: O usuário está escrevendo um novo termo e ainda não apertou Buscar */
+        <div className="py-12 sm:py-16 text-center border border-dashed border-slate-800/80 rounded-3xl p-6 sm:p-10 space-y-4 bg-slate-900/20">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+            <Search className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm text-slate-300">
+              Pressione <kbd className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-emerald-400">Enter</kbd> ou clique no botão <strong className="text-white">Buscar</strong> para pesquisar:
+            </p>
+            <p className="text-base font-semibold text-emerald-400 max-w-lg mx-auto truncate">
+              "{searchQuery}"
+            </p>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => executeSearch(searchQuery, 1, selectedProvider)}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer shadow-sm"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Buscar Agora</span>
+            </button>
+          </div>
         </div>
       ) : (
         /* Estado Padrão (Sem Busca Ativa): Tela limpa de boas-vindas à pesquisa */
