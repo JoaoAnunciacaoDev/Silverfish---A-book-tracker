@@ -67,6 +67,24 @@ func RunMigrations(dbDriver string, dbSource string, sqlDB *sql.DB) error {
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		if strings.Contains(err.Error(), "Dirty database version") {
+			version, dirty, vErr := m.Version()
+			if vErr == nil && dirty {
+				log.Printf("Detectado estado dirty na migração versão %d. Forçando e reaplicando migrações...", version)
+				targetVer := int(version) - 1
+				if targetVer < 0 {
+					targetVer = 0
+				}
+				if forceErr := m.Force(targetVer); forceErr == nil {
+					if upErr := m.Up(); upErr == nil || upErr == migrate.ErrNoChange {
+						log.Println("Migrações recuperadas e aplicadas com sucesso após dirty state!")
+						return nil
+					} else {
+						log.Printf("Aviso ao tentar reaplicar migrações: %v", upErr)
+					}
+				}
+			}
+		}
 		return fmt.Errorf("erro ao rodar migrações: %w", err)
 	}
 

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS achievements (
     description TEXT NOT NULL,
     icon TEXT NOT NULL,
     category TEXT NOT NULL,
+    tier TEXT NOT NULL DEFAULT 'bronze',
     target_value INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
