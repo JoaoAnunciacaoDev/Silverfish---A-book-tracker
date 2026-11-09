@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: silverfish-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - ENV=production
+      - GIN_MODE=release
+      - DB_DRIVER=postgres
+      - DB_SOURCE=postgres://silverfish:silverfish_password@postgres:5432/silverfish_db?sslmode=disable
+      - SESSION_SECRET=silverfish_super_secure_production_secret_key_32bytes_min
+      - FRONTEND_URL=http://localhost:5173
+      - GOOGLE_BOOKS_API_KEY=
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backend_data:/app/data
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: silverfish-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: silverfish
+      POSTGRES_PASSWORD: silverfish_password
+      POSTGRES_DB: silverfish_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U silverfish -d silverfish_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  backend_data:
+  postgres_data:

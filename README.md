@@ -57,6 +57,30 @@ Plataforma completa de incentivo à leitura e construção de hábitos diários 
 
 ---
 
+### Executando com Docker
+
+Se preferir rodar o backend encapsulado em container:
+
+#### Opção A: Apenas o Backend (SQLite embutido)
+```bash
+# Construir a imagem
+docker build -t silverfish-backend ./backend
+
+# Executar o container persistindo os dados
+docker run -d -p 8080:8080 \
+  -e SESSION_SECRET="uma-chave-secreta-com-pelo-menos-32-chars" \
+  -v silverfish_data:/app/data \
+  --name silverfish-backend silverfish-backend
+```
+
+#### Opção B: Backend + PostgreSQL (Docker Compose)
+```bash
+docker compose up -d
+```
+*O Docker Compose sobe o banco de dados PostgreSQL 16 e o backend Go já configurado, sincronizando migrações automaticamente.*
+
+---
+
 ### Frontend
 
 1. Em outro terminal, entre no diretório do frontend:

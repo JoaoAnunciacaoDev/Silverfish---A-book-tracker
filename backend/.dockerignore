@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+.env.*
+*.db
+*.db-journal
+*.log
+coverage.txt
+bin/
+tmp/
