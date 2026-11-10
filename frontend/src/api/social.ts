@@ -20,15 +20,21 @@ export async function getSocialFeed(page: number = 1, limit: number = 20): Promi
 
 export async function getLeaderboard(
   criterion: 'pages' | 'books' | 'streak',
+  year?: string,
   month?: string
 ): Promise<{
   criterion: string
-  month: string
+  year?: string
+  month?: string
   leaderboard: LeaderboardEntry[]
   total: number
 }> {
-  const query = month ? `?criterion=${criterion}&month=${month}` : `?criterion=${criterion}`
-  return apiClient(`/api/social/rankings${query}`)
+  const params = new URLSearchParams()
+  params.set('criterion', criterion)
+  if (year) params.set('year', year)
+  if (month) params.set('month', month)
+
+  return apiClient(`/api/social/rankings?${params.toString()}`)
 }
 
 export async function toggleActivityLike(activityId: string): Promise<{

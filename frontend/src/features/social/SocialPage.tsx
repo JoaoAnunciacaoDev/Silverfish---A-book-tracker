@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   getSocialFeed,
   getLeaderboard,
@@ -38,7 +38,11 @@ import {
   Heart,
   MessageSquare,
   Send,
+  Calendar,
 } from 'lucide-react'
+
+const CURRENT_YEAR = new Date().getFullYear()
+const RANKING_YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
 export function SocialPage() {
   const [activeTab, setActiveTab] = useState<'feed' | 'rankings' | 'discover'>('feed')
@@ -57,6 +61,7 @@ export function SocialPage() {
   // Rankings State
   const [rankings, setRankings] = useState<LeaderboardEntry[]>([])
   const [rankingCriterion, setRankingCriterion] = useState<'pages' | 'books' | 'streak'>('pages')
+  const [rankingYear, setRankingYear] = useState<number>(CURRENT_YEAR)
   const [isRankingsLoading, setIsRankingsLoading] = useState(false)
 
   // Discover / Search State
@@ -75,7 +80,7 @@ export function SocialPage() {
   }
 
   // Carrega Feed
-  const loadFeed = async () => {
+  const loadFeed = useCallback(async () => {
     setIsFeedLoading(true)
     try {
       const data = await getSocialFeed(1, 30)
@@ -85,40 +90,41 @@ export function SocialPage() {
     } finally {
       setIsFeedLoading(false)
     }
-  }
+  }, [])
 
   // Carrega Rankings
-  const loadRankings = async (criterion: 'pages' | 'books' | 'streak') => {
+  const loadRankings = useCallback(async (criterion: 'pages' | 'books' | 'streak', year?: number) => {
     setIsRankingsLoading(true)
     try {
-      const data = await getLeaderboard(criterion)
+      const targetYear = year ?? rankingYear
+      const data = await getLeaderboard(criterion, targetYear.toString())
       setRankings(data.leaderboard || [])
     } catch (err) {
       console.error('Erro ao carregar rankings:', err)
     } finally {
       setIsRankingsLoading(false)
     }
-  }
+  }, [rankingYear])
 
   // Carrega Solicitações Pendentes
-  const loadPendingRequests = async () => {
+  const loadPendingRequests = useCallback(async () => {
     try {
       const data = await getPendingFollows()
       setPendingRequests(data.pending_requests || [])
     } catch (err) {
       console.error('Erro ao carregar pedidos pendentes:', err)
     }
-  }
+  }, [])
 
   useEffect(() => {
     if (activeTab === 'feed') {
       loadFeed()
     } else if (activeTab === 'rankings') {
-      loadRankings(rankingCriterion)
+      loadRankings(rankingCriterion, rankingYear)
     } else if (activeTab === 'discover') {
       loadPendingRequests()
     }
-  }, [activeTab, rankingCriterion])
+  }, [activeTab, rankingCriterion, rankingYear, loadFeed, loadRankings, loadPendingRequests])
 
   const handleToggleLike = async (activityId: string) => {
     try {
@@ -607,41 +613,68 @@ export function SocialPage() {
       {/* ABA 2: RANKINGS SOCIAIS */}
       {activeTab === 'rankings' && (
         <div className="space-y-6">
-          {/* Seletor de Critério */}
+          {/* Seletor de Critério e Ano */}
           <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-            <span className="text-xs font-semibold text-slate-400">Classificação Mensal por:</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setRankingCriterion('pages')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                  rankingCriterion === 'pages'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                Mais Páginas no Mês
-              </button>
-              <button
-                onClick={() => setRankingCriterion('books')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                  rankingCriterion === 'books'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                Mais Livros no Mês
-              </button>
-              <button
-                onClick={() => setRankingCriterion('streak')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                  rankingCriterion === 'streak'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                Maior Ofensiva
-              </button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="text-xs font-semibold text-slate-400">Classificação por:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setRankingCriterion('pages')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    rankingCriterion === 'pages'
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Mais Páginas no Ano
+                </button>
+                <button
+                  onClick={() => setRankingCriterion('books')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    rankingCriterion === 'books'
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Mais Livros no Ano
+                </button>
+                <button
+                  onClick={() => setRankingCriterion('streak')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    rankingCriterion === 'streak'
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Maior Ofensiva
+                </button>
+              </div>
             </div>
+
+            {/* Seletor de Ano */}
+            {rankingCriterion !== 'streak' ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Ano:</span>
+                </span>
+                <select
+                  value={rankingYear}
+                  onChange={(e) => setRankingYear(Number(e.target.value))}
+                  className="px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  {RANKING_YEAR_OPTIONS.map((y) => (
+                    <option key={y} value={y} className="bg-slate-900 text-white">
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <span className="text-[11px] text-slate-500 bg-slate-800/60 px-2.5 py-1 rounded-xl border border-slate-700/40">
+                Sequência ativa contínua
+              </span>
+            )}
           </div>
 
           {isRankingsLoading ? (
@@ -886,7 +919,7 @@ export function SocialPage() {
           username={selectedUsername}
           onClose={() => setSelectedUsername(null)}
           onFollowChanged={() => {
-            if (activeTab === 'rankings') loadRankings(rankingCriterion)
+            if (activeTab === 'rankings') loadRankings(rankingCriterion, rankingYear)
             if (activeTab === 'feed') loadFeed()
           }}
         />

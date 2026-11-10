@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -401,9 +402,38 @@ func GetLeaderboardHandler(c *gin.Context) {
 		criterion = "pages"
 	}
 
-	// Mês de referência (default: mês atual no fuso do usuário YYYY-MM)
+	// Período de referência: por padrão anual (com suporte a seleção de ano ou mês)
 	nowStr := getTodayInTimezone(user.Timezone)
-	month := c.DefaultQuery("month", nowStr[:7])
+	year := strings.TrimSpace(c.Query("year"))
+	month := strings.TrimSpace(c.Query("month"))
+
+	isAnnual := false
+	var startPeriod, endPeriod string
+	var startPages, endPages string
+	var periodLabelYear string
+
+	if year != "" {
+		isAnnual = true
+		startPeriod = year + "-01-01 00:00:00"
+		endPeriod = year + "-12-31 23:59:59"
+		startPages = year + "-01-01"
+		endPages = year + "-12-31"
+		periodLabelYear = year
+	} else if month != "" {
+		startPeriod = month + "-01 00:00:00"
+		endPeriod = month + "-31 23:59:59"
+		startPages = month + "-01"
+		endPages = month + "-31"
+	} else {
+		// Padrão: ano corrente
+		isAnnual = true
+		year = nowStr[:4]
+		startPeriod = year + "-01-01 00:00:00"
+		endPeriod = year + "-12-31 23:59:59"
+		startPages = year + "-01-01"
+		endPages = year + "-12-31"
+		periodLabelYear = year
+	}
 
 	// Coleta IDs dos usuários participantes do ranking: quem o usuário segue aceito + ele mesmo
 	var followingIDs []string
@@ -432,12 +462,10 @@ func GetLeaderboardHandler(c *gin.Context) {
 
 	switch criterion {
 	case "books":
-		startMonth := month + "-01 00:00:00"
-		endMonth := month + "-31 23:59:59"
 		var bookCounts []ParticipantScore
 		_ = db.Model(&schemas.UserBook{}).
 			Select("user_id, COUNT(*) as total").
-			Where("user_id IN (?) AND status = ? AND finished_at BETWEEN ? AND ?", participantIDs, schemas.StatusRead, startMonth, endMonth).
+			Where("user_id IN (?) AND status = ? AND finished_at BETWEEN ? AND ?", participantIDs, schemas.StatusRead, startPeriod, endPeriod).
 			Group("user_id").
 			Scan(&bookCounts).Error
 		for _, bc := range bookCounts {
@@ -450,12 +478,10 @@ func GetLeaderboardHandler(c *gin.Context) {
 			historiesByUser[gh.UserID] = append(historiesByUser[gh.UserID], gh)
 		}
 	default: // "pages"
-		monthStart := month + "-01"
-		monthEnd := month + "-31"
 		var pageSums []ParticipantScore
 		_ = db.Model(&schemas.ReadingSession{}).
 			Select("user_id, COALESCE(SUM(pages_read), 0) as total").
-			Where("user_id IN (?) AND read_at >= ? AND read_at <= ?", participantIDs, monthStart, monthEnd).
+			Where("user_id IN (?) AND read_at >= ? AND read_at <= ?", participantIDs, startPages, endPages).
 			Group("user_id").
 			Scan(&pageSums).Error
 		for _, ps := range pageSums {
@@ -470,7 +496,11 @@ func GetLeaderboardHandler(c *gin.Context) {
 		switch criterion {
 		case "books":
 			score = bookCountsMap[p.ID]
-			label = "livros lidos"
+			if isAnnual {
+				label = fmt.Sprintf("livros em %s", periodLabelYear)
+			} else {
+				label = "livros no mês"
+			}
 		case "streak":
 			todayP := getTodayInTimezone(p.Timezone)
 			currentStreak, _ := calculateStreaks(historiesByUser[p.ID], todayP)
@@ -478,7 +508,11 @@ func GetLeaderboardHandler(c *gin.Context) {
 			label = "dias de ofensiva"
 		default: // "pages"
 			score = pageSumsMap[p.ID]
-			label = "páginas lidas"
+			if isAnnual {
+				label = fmt.Sprintf("páginas em %s", periodLabelYear)
+			} else {
+				label = "páginas no mês"
+			}
 		}
 
 		entries = append(entries, LeaderboardEntry{
@@ -515,6 +549,7 @@ func GetLeaderboardHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"criterion":   criterion,
+		"year":        year,
 		"month":       month,
 		"leaderboard": entries,
 		"total":       len(entries),
