@@ -62,9 +62,11 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  const fetchLibrary = useCallback(async () => {
+  const fetchLibrary = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true)
+      if (!silent) {
+        setIsLoading(true)
+      }
       const params: { status?: string; favorite?: boolean; in_collection?: boolean; q?: string } = {}
 
       if (activeFilter === 'favorites') {
@@ -85,7 +87,9 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
     } catch {
       // Ignora erro
     } finally {
-      setIsLoading(false)
+      if (!silent) {
+        setIsLoading(false)
+      }
     }
   }, [activeFilter, searchQuery])
 
@@ -97,18 +101,18 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   const handleUpdateProgress = async (id: string, newPage: number) => {
     const res = await updateLibraryBook(id, { current_page: newPage })
     setItems((prev) => prev.map((item) => (item.id === id ? res.item : item)))
-    showToast(`Progresso de "${res.item.book.title}" atualizado para pagina ${newPage}`)
+    showToast(`Progresso de "${res.item.book.title}" atualizado para página ${newPage}`)
     setGoalRefreshKey((k) => k + 1)
-    fetchLibrary()
+    fetchLibrary(true)
   }
 
   const handleSessionLogged = (session: { user_book: UserBook; pages_read: number }) => {
     setItems((prev) =>
       prev.map((i) => (i.id === session.user_book.id ? session.user_book : i))
     )
-    showToast(`Sessao registrada: +${session.pages_read} paginas lidas`)
+    showToast(`Sessão registrada: +${session.pages_read} páginas lidas`)
     setGoalRefreshKey((k) => k + 1)
-    fetchLibrary()
+    fetchLibrary(true)
   }
 
   const handleChangeStatus = async (item: UserBook, newStatus: UserBookStatus) => {
@@ -121,7 +125,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       const res = await updateLibraryBook(item.id, { status: newStatus })
       setItems((prev) => prev.map((i) => (i.id === item.id ? res.item : i)))
       showToast(`"${item.book.title}" movido para nova categoria`)
-      fetchLibrary()
+      fetchLibrary(true)
     } catch {
       showToast('Erro ao atualizar status do livro')
     }
@@ -133,7 +137,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       finished_at: finishedAt,
     })
     setItems((prev) => prev.map((i) => (i.id === id ? res.item : i)))
-    fetchLibrary()
+    fetchLibrary(true)
     return res.item
   }
 
@@ -143,8 +147,12 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       setItems((prev) =>
         prev.map((i) => (i.id === id ? { ...i, favorite: res.favorite } : i))
       )
+      setSummary((prev) => ({
+        ...prev,
+        favorites: res.favorite ? prev.favorites + 1 : Math.max(0, prev.favorites - 1),
+      }))
       showToast(res.favorite ? 'Adicionado aos favoritos' : 'Removido dos favoritos')
-      fetchLibrary()
+      fetchLibrary(true)
     } catch {
       showToast('Erro ao alternar favorito')
     }
@@ -156,8 +164,12 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       setItems((prev) =>
         prev.map((i) => (i.id === id ? { ...i, in_collection: res.in_collection } : i))
       )
+      setSummary((prev) => ({
+        ...prev,
+        in_collection: res.in_collection ? prev.in_collection + 1 : Math.max(0, prev.in_collection - 1),
+      }))
       showToast(res.in_collection ? 'Adicionado à sua coleção' : 'Removido da sua coleção')
-      fetchLibrary()
+      fetchLibrary(true)
     } catch {
       showToast('Erro ao atualizar coleção')
     }
@@ -168,7 +180,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       await deleteLibraryBook(id)
       setItems((prev) => prev.filter((i) => i.id !== id))
       showToast('Livro removido da sua estante.')
-      fetchLibrary()
+      fetchLibrary(true)
     } catch {
       showToast('Erro ao remover livro da estante')
     }

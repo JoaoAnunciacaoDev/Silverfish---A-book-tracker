@@ -227,9 +227,14 @@ export function LibraryBookCard({
           </div>
         ) : item.status === 'read' ? (
           <div className="flex-1 flex items-center justify-between gap-2">
-            <span className="text-xs text-slate-500">
-              {item.book.page_count} páginas
-            </span>
+            <button
+              onClick={() => onEditReadDate?.(item)}
+              className="py-1 px-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
+              title="Clique para definir ou alterar a data em que você leu este livro"
+            >
+              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+              <span>{formatFinishedDate(item.finished_at) || 'Definir data'}</span>
+            </button>
             {onOpenReview && (
               <button
                 onClick={() => onOpenReview(item)}
@@ -241,9 +246,25 @@ export function LibraryBookCard({
             )}
           </div>
         ) : (
-          <span className="text-xs text-slate-500">
-            {item.book.page_count} páginas
-          </span>
+          <div className="flex-1 flex items-center justify-between gap-2">
+            <span className="text-xs text-slate-500">
+              {item.book.page_count} páginas
+            </span>
+            <button
+              onClick={() => {
+                if (onEditReadDate) {
+                  onEditReadDate(item)
+                } else {
+                  onChangeStatus(item, 'read')
+                }
+              }}
+              className="py-1 px-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
+              title="Marcar livro como lido e registrar data"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Marcar Lido</span>
+            </button>
+          </div>
         )}
 
         {/* Menu de Opções / Mudar Status */}
