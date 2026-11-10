@@ -44,10 +44,12 @@ export interface AddToLibraryInput {
   current_page?: number
   favorite?: boolean
   in_collection?: boolean
+  finished_at?: string | null
 }
 
 export interface UpdateLibraryBookInput {
   status?: UserBookStatus
   current_page?: number
   in_collection?: boolean
+  finished_at?: string | null
 }

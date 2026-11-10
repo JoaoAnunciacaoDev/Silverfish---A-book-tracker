@@ -292,7 +292,7 @@ export function BookCatalogPage() {
                 : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <span>Google Books (Livros & Sinopses)</span>
+            <span>Google Books (Livros)</span>
           </button>
 
           <button

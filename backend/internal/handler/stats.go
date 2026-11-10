@@ -51,6 +51,22 @@ func GetDashboardStatsHandler(c *gin.Context) {
 	var inCollectionCount int64
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND in_collection = true", user.ID).Count(&inCollectionCount)
 
+	// Livros lidos no ano atual e contagem histórica por ano
+	var allReadBooks []schemas.UserBook
+	db.Where("user_id = ? AND status = ?", user.ID, schemas.StatusRead).Find(&allReadBooks)
+
+	var booksReadThisYear int64
+	booksByYearMap := make(map[string]int)
+	for _, ub := range allReadBooks {
+		if ub.FinishedAt != nil {
+			y := ub.FinishedAt.Format("2006")
+			booksByYearMap[y]++
+			if y == currentYear {
+				booksReadThisYear++
+			}
+		}
+	}
+
 	// 2. Páginas lidas
 	var totalPagesRead int64
 	db.Model(&schemas.ReadingSession{}).Where("user_id = ?", user.ID).Select("COALESCE(SUM(pages_read), 0)").Scan(&totalPagesRead)
@@ -130,9 +146,11 @@ func GetDashboardStatsHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"books": gin.H{
-			"read":          totalBooksRead,
-			"reading":       totalBooksReading,
-			"in_collection": inCollectionCount,
+			"read":           totalBooksRead,
+			"reading":        totalBooksReading,
+			"in_collection":  inCollectionCount,
+			"read_this_year": booksReadThisYear,
+			"by_year":        booksByYearMap,
 		},
 		"pages": gin.H{
 			"total":         totalPagesRead,

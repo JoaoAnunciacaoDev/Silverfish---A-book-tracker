@@ -2,6 +2,7 @@ import type { UserBook, UserBookStatus } from '@/types/library'
 import {
   Archive,
   BookOpen,
+  Calendar,
   CheckCircle2,
   Clock,
   Heart,
@@ -12,6 +13,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
+import { formatFinishedDate } from '@/utils/date'
 
 interface LibraryBookCardProps {
   item: UserBook
@@ -22,6 +24,7 @@ interface LibraryBookCardProps {
   onToggleInCollection: (id: string) => void
   onRemove: (id: string) => void
   onOpenReview?: (item: UserBook) => void
+  onEditReadDate?: (item: UserBook) => void
 }
 
 const statusConfig: Record<
@@ -74,6 +77,7 @@ export function LibraryBookCard({
   onToggleInCollection,
   onRemove,
   onOpenReview,
+  onEditReadDate,
 }: LibraryBookCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const currentConfig = statusConfig[item.status] || statusConfig.want_to_read
@@ -166,6 +170,18 @@ export function LibraryBookCard({
                   <Archive className="w-3 h-3" />
                   <span>Na Coleção</span>
                 </span>
+              )}
+
+              {item.status === 'read' && (
+                <button
+                  type="button"
+                  onClick={() => onEditReadDate?.(item)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-700/60 transition cursor-pointer"
+                  title="Clique para alterar ou registrar quando leu este livro"
+                >
+                  <Calendar className="w-3 h-3 text-indigo-400" />
+                  <span>{formatFinishedDate(item.finished_at) || 'Definir data'}</span>
+                </button>
               )}
             </div>
           </div>
@@ -277,16 +293,31 @@ export function LibraryBookCard({
                   </button>
                 )}
 
-                {item.status !== 'read' && (
+                {item.status !== 'read' ? (
                   <button
                     onClick={() => {
-                      onChangeStatus(item, 'read')
+                      if (onEditReadDate) {
+                        onEditReadDate(item)
+                      } else {
+                        onChangeStatus(item, 'read')
+                      }
                       setShowMenu(false)
                     }}
                     className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Marcar como Lido</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      onEditReadDate?.(item)
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Data de Conclusão</span>
                   </button>
                 )}
 

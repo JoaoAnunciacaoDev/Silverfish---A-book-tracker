@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,12 +12,50 @@ import (
 	"github.com/google/uuid"
 )
 
+// parseFinishedAt interpreta datas completas (YYYY-MM-DD), apenas anos (YYYY) ou timestamp ISO8601
+func parseFinishedAt(raw *string) (*time.Time, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	s := strings.TrimSpace(*raw)
+	if s == "" || s == "null" || s == "none" || s == "clear" {
+		return nil, nil
+	}
+
+	// Caso 1: Apenas ano (ex: "2023")
+	if len(s) == 4 {
+		year, err := strconv.Atoi(s)
+		if err == nil && year >= 1800 && year <= 2100 {
+			t := time.Date(year, 1, 1, 12, 0, 0, 0, time.UTC)
+			return &t, nil
+		}
+	}
+
+	// Caso 2: Data no formato YYYY-MM-DD
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		t = time.Date(t.Year(), t.Month(), t.Day(), 12, 0, 0, 0, time.UTC)
+		return &t, nil
+	}
+
+	// Caso 3: RFC3339 / ISO8601
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return &t, nil
+	}
+
+	if t, err := time.Parse("2006-01-02T15:04:05", s); err == nil {
+		return &t, nil
+	}
+
+	return nil, errors.New("formato de data de conclusão inválido (use YYYY-MM-DD ou YYYY)")
+}
+
 type AddToLibraryRequest struct {
-	BookID       string `json:"book_id"`
-	Status       string `json:"status"`
-	CurrentPage  int    `json:"current_page"`
-	Favorite     bool   `json:"favorite"`
-	InCollection bool   `json:"in_collection"`
+	BookID       string  `json:"book_id"`
+	Status       string  `json:"status"`
+	CurrentPage  int     `json:"current_page"`
+	Favorite     bool    `json:"favorite"`
+	InCollection bool    `json:"in_collection"`
+	FinishedAt   *string `json:"finished_at"`
 }
 
 func (r *AddToLibraryRequest) Validate() error {
@@ -84,7 +123,16 @@ func AddToLibraryHandler(c *gin.Context) {
 		startedAt = &now
 	} else if request.Status == schemas.StatusRead {
 		startedAt = &now
-		finishedAt = &now
+		if request.FinishedAt != nil {
+			parsed, err := parseFinishedAt(request.FinishedAt)
+			if err != nil {
+				sendError(c, http.StatusBadRequest, err.Error())
+				return
+			}
+			finishedAt = parsed
+		} else {
+			finishedAt = &now
+		}
 		if book.PageCount > 0 {
 			request.CurrentPage = book.PageCount
 		}

@@ -14,6 +14,7 @@ type UpdateLibraryBookRequest struct {
 	Status       *string `json:"status"`
 	CurrentPage  *int    `json:"current_page"`
 	InCollection *bool   `json:"in_collection"`
+	FinishedAt   *string `json:"finished_at"`
 }
 
 func (r *UpdateLibraryBookRequest) Validate() error {
@@ -72,7 +73,9 @@ func UpdateLibraryBookHandler(c *gin.Context) {
 				if userBook.StartedAt == nil {
 					userBook.StartedAt = &now
 				}
-				userBook.FinishedAt = &now
+				if request.FinishedAt == nil && userBook.FinishedAt == nil {
+					userBook.FinishedAt = &now
+				}
 				if userBook.Book.PageCount > 0 {
 					userBook.CurrentPage = userBook.Book.PageCount
 				}
@@ -81,6 +84,16 @@ func UpdateLibraryBookHandler(c *gin.Context) {
 				userBook.FinishedAt = nil
 			}
 		}
+	}
+
+	// 2. Atualização explícita de data de término
+	if request.FinishedAt != nil {
+		parsed, err := parseFinishedAt(request.FinishedAt)
+		if err != nil {
+			sendError(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		userBook.FinishedAt = parsed
 	}
 
 	// 2. Atualização de flag de coleção

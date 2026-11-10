@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { addToLibrary } from '@/api/library'
 import type { Book } from '@/types/book'
 import type { UserBook, UserBookStatus } from '@/types/library'
-import { Archive, BookMarked, Check, Heart, Loader2, X } from 'lucide-react'
+import { Archive, BookMarked, Calendar, Check, Heart, Loader2, X } from 'lucide-react'
+
+const CURRENT_YEAR = new Date().getFullYear()
+const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 1950 + 1 }, (_, i) => CURRENT_YEAR - i)
 
 interface AddToLibraryModalProps {
   book: Book | null
@@ -21,6 +24,9 @@ export function AddToLibraryModal({
   const [currentPage, setCurrentPage] = useState(0)
   const [inCollection, setInCollection] = useState(false)
   const [favorite, setFavorite] = useState(false)
+  const [readDateOption, setReadDateOption] = useState<'today' | 'exact' | 'year' | 'none'>('today')
+  const [exactDate, setExactDate] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -30,6 +36,9 @@ export function AddToLibraryModal({
       setCurrentPage(0)
       setInCollection(false)
       setFavorite(false)
+      setReadDateOption('today')
+      setExactDate(new Date().toISOString().slice(0, 10))
+      setSelectedYear(CURRENT_YEAR)
       setError(null)
     }
   }, [isOpen])
@@ -41,12 +50,27 @@ export function AddToLibraryModal({
     try {
       setIsLoading(true)
       setError(null)
+
+      let finishedAtPayload: string | null = null
+      if (status === 'read') {
+        if (readDateOption === 'today') {
+          finishedAtPayload = new Date().toISOString().slice(0, 10)
+        } else if (readDateOption === 'exact') {
+          finishedAtPayload = exactDate || new Date().toISOString().slice(0, 10)
+        } else if (readDateOption === 'year') {
+          finishedAtPayload = selectedYear.toString()
+        } else {
+          finishedAtPayload = null
+        }
+      }
+
       const res = await addToLibrary({
         book_id: book.id,
         status,
         current_page: status === 'reading' ? currentPage : 0,
         in_collection: inCollection,
         favorite,
+        finished_at: finishedAtPayload,
       })
       onSuccess(res.item)
       onClose()
@@ -157,6 +181,96 @@ export function AddToLibraryModal({
                 placeholder="Ex: 50"
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl text-sm text-white focus:outline-hidden transition"
               />
+            </div>
+          )}
+
+          {status === 'read' && (
+            <div className="space-y-2.5 animate-in fade-in duration-150 p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Quando você leu este livro?</span>
+                </label>
+                <span className="text-[10px] text-slate-500">Opcional</span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setReadDateOption('today')}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-medium border transition cursor-pointer text-center ${
+                    readDateOption === 'today'
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-semibold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Hoje
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReadDateOption('exact')}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-medium border transition cursor-pointer text-center ${
+                    readDateOption === 'exact'
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-semibold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Data exata
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReadDateOption('year')}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-medium border transition cursor-pointer text-center ${
+                    readDateOption === 'year'
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-semibold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Apenas ano
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReadDateOption('none')}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-medium border transition cursor-pointer text-center ${
+                    readDateOption === 'none'
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-semibold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Não lembro
+                </button>
+              </div>
+
+              {readDateOption === 'exact' && (
+                <div className="pt-1">
+                  <input
+                    type="date"
+                    value={exactDate}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setExactDate(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl text-xs text-white focus:outline-hidden transition"
+                  />
+                </div>
+              )}
+
+              {readDateOption === 'year' && (
+                <div className="pt-1">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-xl text-xs text-white focus:outline-hidden transition cursor-pointer"
+                  >
+                    {YEAR_OPTIONS.map((y) => (
+                      <option key={y} value={y}>
+                        Ano {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 

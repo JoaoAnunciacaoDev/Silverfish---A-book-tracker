@@ -9,6 +9,7 @@ import {
 import type { LibrarySummary, UserBook, UserBookStatus } from '@/types/library'
 import { LibraryBookCard } from './LibraryBookCard'
 import { UpdateProgressModal } from './UpdateProgressModal'
+import { MarkAsReadModal } from './MarkAsReadModal'
 import { LogSessionModal } from '@/features/reading/LogSessionModal'
 import { ReadingHistoryModal } from '@/features/reading/ReadingHistoryModal'
 import { ReviewModal } from '@/features/reviews/ReviewModal'
@@ -51,6 +52,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   const [selectedBookForProgress, setSelectedBookForProgress] = useState<UserBook | null>(null)
   const [selectedBookForSession, setSelectedBookForSession] = useState<UserBook | null>(null)
   const [selectedBookForReview, setSelectedBookForReview] = useState<UserBook | null>(null)
+  const [selectedBookForReadDate, setSelectedBookForReadDate] = useState<UserBook | null>(null)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [goalRefreshKey, setGoalRefreshKey] = useState(0)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -110,6 +112,11 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   }
 
   const handleChangeStatus = async (item: UserBook, newStatus: UserBookStatus) => {
+    if (newStatus === 'read') {
+      setSelectedBookForReadDate(item)
+      return
+    }
+
     try {
       const res = await updateLibraryBook(item.id, { status: newStatus })
       setItems((prev) => prev.map((i) => (i.id === item.id ? res.item : i)))
@@ -118,6 +125,16 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
     } catch {
       showToast('Erro ao atualizar status do livro')
     }
+  }
+
+  const handleSaveReadDate = async (id: string, finishedAt: string | null): Promise<UserBook> => {
+    const res = await updateLibraryBook(id, {
+      status: 'read',
+      finished_at: finishedAt,
+    })
+    setItems((prev) => prev.map((i) => (i.id === id ? res.item : i)))
+    fetchLibrary()
+    return res.item
   }
 
   const handleToggleFavorite = async (id: string) => {
@@ -355,10 +372,23 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
               onToggleInCollection={handleToggleInCollection}
               onRemove={handleRemove}
               onOpenReview={(book) => setSelectedBookForReview(book)}
+              onEditReadDate={(book) => setSelectedBookForReadDate(book)}
             />
           ))}
         </div>
       )}
+
+      {/* Modal de Conclusão / Data de Leitura */}
+      <MarkAsReadModal
+        isOpen={Boolean(selectedBookForReadDate)}
+        userBook={selectedBookForReadDate}
+        onClose={() => setSelectedBookForReadDate(null)}
+        onSuccess={(updated) => {
+          showToast(`"${updated.book.title}" atualizado com sucesso!`)
+          fetchLibrary()
+        }}
+        onSaveDate={handleSaveReadDate}
+      />
 
       {/* Modal de Avaliações / Resenhas */}
       <ReviewModal
