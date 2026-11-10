@@ -10,6 +10,11 @@ import {
 import type { NotificationSettings } from '@/types/notifications'
 import { X, Bell, BellOff, Clock, Flame, Check, AlertCircle, Smartphone } from 'lucide-react'
 
+const HOURLY_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const h = i.toString().padStart(2, '0')
+  return `${h}:00`
+})
+
 interface NotificationSettingsModalProps {
   onClose: () => void
 }
@@ -330,14 +335,23 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
                   <div className="flex items-center gap-2 pt-1">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-slate-300 text-xs font-medium">Horário:</span>
-                    <input
-                      type="time"
-                      value={settings.reminder_time}
+                    <select
+                      value={
+                        HOURLY_OPTIONS.includes(settings.reminder_time)
+                          ? settings.reminder_time
+                          : (settings.reminder_time?.split(':')[0]?.padStart(2, '0') || '20') + ':00'
+                      }
                       onChange={(e) =>
                         setSettings({ ...settings, reminder_time: e.target.value })
                       }
-                      className="px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
-                    />
+                      className="px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-lg text-white text-xs font-mono focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      {HOURLY_OPTIONS.map((hour) => (
+                        <option key={hour} value={hour}>
+                          {hour}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>

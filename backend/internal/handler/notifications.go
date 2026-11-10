@@ -266,6 +266,11 @@ func UpdateNotificationSettingsHandler(c *gin.Context) {
 			sendError(c, http.StatusBadRequest, "o horário do lembrete deve estar no formato 24h (ex: '20:00')")
 			return
 		}
+		// Normaliza para horário em ponto (ex: '20:00')
+		parts := strings.Split(t, ":")
+		if h, err := strconv.Atoi(parts[0]); err == nil && h >= 0 && h <= 23 {
+			t = fmt.Sprintf("%02d:00", h)
+		}
 		settings.ReminderTime = t
 	}
 	if req.StreakAlertEnabled != nil {
@@ -425,11 +430,17 @@ func CronRemindersHandler(c *gin.Context) {
 			continue
 		}
 
-		// Monta mensagem motivacional personalizada
+		// Monta mensagem motivacional personalizada com detecção real de ofensiva ativa
+		var historyList []schemas.GoalHistory
+		_ = db.Where("user_id = ?", user.ID).Order("date asc").Find(&historyList).Error
+		currentStreak, _ := calculateStreaks(historyList, userToday)
+
 		title := "Hora da leitura! 📖"
 		body := fmt.Sprintf("Olá, %s! Que tal ler algumas páginas agora para manter seu hábito literário?", user.DisplayName)
-		if s.StreakAlertEnabled {
-			body = fmt.Sprintf("Olá, %s! Sua sequência de leitura está ativa. Leia hoje para não perder sua ofensiva! 🔥", user.DisplayName)
+
+		if s.StreakAlertEnabled && currentStreak > 0 {
+			title = fmt.Sprintf("Não perca sua ofensiva de %d dias! 🔥", currentStreak)
+			body = fmt.Sprintf("Olá, %s! Sua sequência de %d dias está em risco hoje. Leia agora para mantê-la viva! 🔥", user.DisplayName, currentStreak)
 		}
 
 		payload := WebPushPayload{
