@@ -183,7 +183,7 @@ export function DashboardPage() {
             {stats.books.read}
           </div>
           <p className="text-[10px] sm:text-[11px] text-slate-400">
-            {stats.books.reading} lendo • {stats.books.in_collection} na coleção
+            {stats.books.reading} lendo atualmente
           </p>
         </div>
 

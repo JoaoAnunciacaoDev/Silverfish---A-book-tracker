@@ -9,7 +9,6 @@ import type {
 export async function listLibrary(params: {
   status?: string
   favorite?: boolean
-  in_collection?: boolean
   q?: string
   page?: number
   limit?: number
@@ -17,7 +16,6 @@ export async function listLibrary(params: {
   const query = new URLSearchParams()
   if (params.status) query.set('status', params.status)
   if (params.favorite) query.set('favorite', 'true')
-  if (params.in_collection) query.set('in_collection', 'true')
   if (params.q) query.set('q', params.q)
   if (params.page) query.set('page', params.page.toString())
   if (params.limit) query.set('limit', params.limit.toString())
@@ -53,12 +51,6 @@ export async function deleteLibraryBook(id: string): Promise<{ message: string }
 
 export async function toggleFavorite(id: string): Promise<{ message: string; favorite: boolean }> {
   return apiClient<{ message: string; favorite: boolean }>(`/api/library/${id}/favorite`, {
-    method: 'PATCH',
-  })
-}
-
-export async function toggleInCollection(id: string): Promise<{ message: string; in_collection: boolean }> {
-  return apiClient<{ message: string; in_collection: boolean }>(`/api/library/${id}/collection`, {
     method: 'PATCH',
   })
 }

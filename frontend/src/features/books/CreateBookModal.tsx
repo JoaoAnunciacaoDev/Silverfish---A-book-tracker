@@ -20,7 +20,7 @@ export function CreateBookModal({ isOpen, onClose, onSuccess, initialTitle = '' 
     isbn: '',
     description: '',
     add_to_shelf: true,
-    shelf_status: 'in_collection',
+    shelf_status: 'want_to_read',
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -191,7 +191,6 @@ export function CreateBookModal({ isOpen, onClose, onSuccess, initialTitle = '' 
                     onChange={(e) => setForm({ ...form, shelf_status: e.target.value })}
                     className="px-2.5 py-1 bg-slate-900 border border-slate-700 text-xs text-white rounded-lg focus:outline-hidden"
                   >
-                    <option value="in_collection">No Acervo (Possuo mas não lendo agora)</option>
                     <option value="want_to_read">Quero Ler</option>
                     <option value="reading">Lendo Agora</option>
                     <option value="read">Já Lido</option>

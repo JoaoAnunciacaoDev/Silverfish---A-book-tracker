@@ -13,7 +13,6 @@ func TestIsValidUserBookStatus(t *testing.T) {
 		schemas.StatusRead,
 		schemas.StatusPaused,
 		schemas.StatusAbandoned,
-		schemas.StatusInCollection,
 	}
 
 	for _, s := range validStatuses {

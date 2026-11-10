@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { addToLibrary } from '@/api/library'
 import type { Book } from '@/types/book'
 import type { UserBook, UserBookStatus } from '@/types/library'
-import { Archive, BookMarked, Check, Heart, Loader2, X } from 'lucide-react'
+import { BookMarked, Check, Heart, Loader2, X } from 'lucide-react'
 
 interface AddToLibraryModalProps {
   book: Book | null
@@ -19,7 +19,6 @@ export function AddToLibraryModal({
 }: AddToLibraryModalProps) {
   const [status, setStatus] = useState<UserBookStatus>('want_to_read')
   const [currentPage, setCurrentPage] = useState(0)
-  const [inCollection, setInCollection] = useState(false)
   const [favorite, setFavorite] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +27,6 @@ export function AddToLibraryModal({
     if (isOpen) {
       setStatus('want_to_read')
       setCurrentPage(0)
-      setInCollection(false)
       setFavorite(false)
       setError(null)
     }
@@ -45,7 +43,6 @@ export function AddToLibraryModal({
         book_id: book.id,
         status,
         current_page: status === 'reading' ? currentPage : 0,
-        in_collection: inCollection,
         favorite,
       })
       onSuccess(res.item)
@@ -160,21 +157,8 @@ export function AddToLibraryModal({
             </div>
           )}
 
-          {/* Tags opcionais (Posse e Favorito) */}
+          {/* Tag de Favorito */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setInCollection(!inCollection)}
-              className={`p-2 rounded-xl border transition cursor-pointer flex items-center space-x-2 text-xs font-medium ${
-                inCollection
-                  ? 'bg-teal-500/10 border-teal-500/30 text-teal-400'
-                  : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
-              }`}
-            >
-              <Archive className={`w-4 h-4 ${inCollection ? 'fill-teal-400/20 text-teal-400' : ''}`} />
-              <span>Tenho na Coleção</span>
-            </button>
-
             <button
               type="button"
               onClick={() => setFavorite(!favorite)}
@@ -185,7 +169,7 @@ export function AddToLibraryModal({
               }`}
             >
               <Heart className={`w-4 h-4 ${favorite ? 'fill-rose-400 text-rose-400' : ''}`} />
-              <span>Favorito</span>
+              <span>Marcar como Favorito</span>
             </button>
           </div>
 

@@ -80,7 +80,6 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			library.PUT("/:id", handler.UpdateLibraryBookHandler)
 			library.DELETE("/:id", handler.DeleteLibraryBookHandler)
 			library.PATCH("/:id/favorite", handler.ToggleFavoriteHandler)
-			library.PATCH("/:id/collection", handler.ToggleInCollectionHandler)
 		}
 
 		// Sessões de Leitura (Etapa 7)

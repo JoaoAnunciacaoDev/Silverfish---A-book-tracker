@@ -48,8 +48,7 @@ func GetDashboardStatsHandler(c *gin.Context) {
 	var totalBooksReading int64
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusReading).Count(&totalBooksReading)
 
-	var inCollectionCount int64
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND in_collection = true", user.ID).Count(&inCollectionCount)
+	var inCollectionCount int64 = 0
 
 	// 2. Páginas lidas
 	var totalPagesRead int64
