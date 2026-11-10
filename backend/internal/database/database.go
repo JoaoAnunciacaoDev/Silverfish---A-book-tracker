@@ -57,8 +57,9 @@ func SyncSchemas(db *gorm.DB) error {
 			}
 		}
 	} else {
-		// Garante que a coluna in_collection exista no Postgres imediatamente sem atrasar o boot
+		// Garante que novas colunas existam no Postgres imediatamente sem atrasar o boot
 		_ = db.Exec("ALTER TABLE user_books ADD COLUMN IF NOT EXISTS in_collection BOOLEAN NOT NULL DEFAULT FALSE").Error
+		_ = db.Exec("ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS last_reminder_date TEXT NOT NULL DEFAULT ''").Error
 	}
 
 	return nil
