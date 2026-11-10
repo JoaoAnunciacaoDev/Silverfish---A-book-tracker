@@ -24,7 +24,7 @@ func SanitizePostgresURL(rawURL string) string {
 
 // SyncSchemas sincroniza todos os schemas GORM garantindo que tabelas e colunas existam independentemente do migrate
 func SyncSchemas(db *gorm.DB) error {
-	if err := db.AutoMigrate(
+	models := []interface{}{
 		&schemas.User{},
 		&schemas.Session{},
 		&schemas.Book{},
@@ -43,9 +43,16 @@ func SyncSchemas(db *gorm.DB) error {
 		&schemas.ActivityLike{},
 		&schemas.ActivityComment{},
 		&schemas.BookReview{},
-	); err != nil {
-		return err
 	}
+
+	for _, m := range models {
+		if err := db.AutoMigrate(m); err != nil {
+			log.Printf("[AutoMigrate] aviso ao sincronizar %T: %v", m, err)
+		}
+	}
+
+	// Garante que a coluna in_collection exista mesmo em bancos Postgres existentes
+	_ = db.Exec("ALTER TABLE user_books ADD COLUMN IF NOT EXISTS in_collection BOOLEAN NOT NULL DEFAULT FALSE").Error
 
 	return nil
 }

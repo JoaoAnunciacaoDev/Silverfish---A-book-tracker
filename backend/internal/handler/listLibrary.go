@@ -26,6 +26,7 @@ func ListLibraryHandler(c *gin.Context) {
 
 	status := strings.TrimSpace(c.Query("status"))
 	favStr := strings.TrimSpace(c.Query("favorite"))
+	inColStr := strings.TrimSpace(c.Query("in_collection"))
 	q := strings.TrimSpace(c.Query("q"))
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -66,6 +67,7 @@ func ListLibraryHandler(c *gin.Context) {
 			summary.Abandoned = t.Total
 		}
 	}
+	db.Model(&schemas.UserBook{}).Where("user_id = ? AND in_collection = true", user.ID).Count(&summary.InCollection)
 	db.Model(&schemas.UserBook{}).Where("user_id = ? AND favorite = true", user.ID).Count(&summary.Favorites)
 
 	// 2. Monta consulta filtrada
@@ -73,7 +75,9 @@ func ListLibraryHandler(c *gin.Context) {
 		Preload("Book").
 		Where("user_id = ?", user.ID)
 
-	if status != "" && schemas.IsValidUserBookStatus(status) {
+	if inColStr == "true" {
+		query = query.Where("in_collection = true")
+	} else if status != "" && schemas.IsValidUserBookStatus(status) {
 		query = query.Where("status = ?", status)
 	}
 

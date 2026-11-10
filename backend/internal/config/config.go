@@ -18,6 +18,7 @@ type Config struct {
 	VapidPublicKey    string
 	VapidPrivateKey   string
 	VapidSubject      string
+	CronSecret        string
 }
 
 // Load lê o arquivo .env e retorna um ponteiro para a struct Config preenchida com as variáveis de ambiente.
@@ -46,6 +47,7 @@ func Load() *Config {
 		VapidPublicKey:    getEnv("VAPID_PUBLIC_KEY", ""),
 		VapidPrivateKey:   getEnv("VAPID_PRIVATE_KEY", ""),
 		VapidSubject:      getEnv("VAPID_SUBJECT", "mailto:suporte@silverfish.app"),
+		CronSecret:        getEnv("CRON_SECRET", ""),
 	}
 
 	// Validação estrita para ambiente de produção

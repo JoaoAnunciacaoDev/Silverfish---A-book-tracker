@@ -4,6 +4,7 @@ import {
   updateLibraryBook,
   deleteLibraryBook,
   toggleFavorite,
+  toggleInCollection,
 } from '@/api/library'
 import type { LibrarySummary, UserBook, UserBookStatus } from '@/types/library'
 import { LibraryBookCard } from './LibraryBookCard'
@@ -14,6 +15,7 @@ import { ReviewModal } from '@/features/reviews/ReviewModal'
 import { DailyGoalWidget } from '@/features/goals/DailyGoalWidget'
 import { StreakWidget } from '@/features/goals/StreakWidget'
 import {
+  Archive,
   BookMarked,
   BookOpen,
   CheckCircle2,
@@ -32,7 +34,7 @@ interface LibraryPageProps {
 }
 
 export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
-  const [activeFilter, setActiveFilter] = useState<'all' | UserBookStatus | 'favorites'>('all')
+  const [activeFilter, setActiveFilter] = useState<'all' | UserBookStatus | 'favorites' | 'in_collection'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [items, setItems] = useState<UserBook[]>([])
   const [summary, setSummary] = useState<LibrarySummary>({
@@ -42,6 +44,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
     read: 0,
     paused: 0,
     abandoned: 0,
+    in_collection: 0,
     favorites: 0,
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -60,10 +63,12 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   const fetchLibrary = useCallback(async () => {
     try {
       setIsLoading(true)
-      const params: { status?: string; favorite?: boolean; q?: string } = {}
+      const params: { status?: string; favorite?: boolean; in_collection?: boolean; q?: string } = {}
 
       if (activeFilter === 'favorites') {
         params.favorite = true
+      } else if (activeFilter === 'in_collection') {
+        params.in_collection = true
       } else if (activeFilter !== 'all') {
         params.status = activeFilter
       }
@@ -125,6 +130,19 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       fetchLibrary()
     } catch {
       showToast('Erro ao alternar favorito')
+    }
+  }
+
+  const handleToggleInCollection = async (id: string) => {
+    try {
+      const res = await toggleInCollection(id)
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, in_collection: res.in_collection } : i))
+      )
+      showToast(res.in_collection ? 'Adicionado à sua coleção' : 'Removido da sua coleção')
+      fetchLibrary()
+    } catch {
+      showToast('Erro ao atualizar coleção')
     }
   }
 
@@ -251,6 +269,18 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
           </button>
 
           <button
+            onClick={() => setActiveFilter('in_collection')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
+              activeFilter === 'in_collection'
+                ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>Coleção ({summary.in_collection})</span>
+          </button>
+
+          <button
             onClick={() => setActiveFilter('paused')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
               activeFilter === 'paused'
@@ -322,6 +352,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
               onLogSession={(book) => setSelectedBookForSession(book)}
               onChangeStatus={handleChangeStatus}
               onToggleFavorite={handleToggleFavorite}
+              onToggleInCollection={handleToggleInCollection}
               onRemove={handleRemove}
               onOpenReview={(book) => setSelectedBookForReview(book)}
             />

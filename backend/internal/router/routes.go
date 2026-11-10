@@ -80,6 +80,7 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			library.PUT("/:id", handler.UpdateLibraryBookHandler)
 			library.DELETE("/:id", handler.DeleteLibraryBookHandler)
 			library.PATCH("/:id/favorite", handler.ToggleFavoriteHandler)
+			library.PATCH("/:id/collection", handler.ToggleInCollectionHandler)
 		}
 
 		// Sessões de Leitura (Etapa 7)
@@ -157,5 +158,9 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			notifications.PUT("/settings", handler.UpdateNotificationSettingsHandler)
 			notifications.POST("/test", handler.SendTestNotificationHandler)
 		}
+
+		// Cron Jobs (Lembretes Automáticos Serverless)
+		api.GET("/cron/reminders", handler.CronRemindersHandler)
+		api.POST("/cron/reminders", handler.CronRemindersHandler)
 	}
 }

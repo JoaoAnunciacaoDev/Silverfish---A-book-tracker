@@ -11,8 +11,9 @@ import (
 )
 
 type UpdateLibraryBookRequest struct {
-	Status      *string `json:"status"`
-	CurrentPage *int    `json:"current_page"`
+	Status       *string `json:"status"`
+	CurrentPage  *int    `json:"current_page"`
+	InCollection *bool   `json:"in_collection"`
 }
 
 func (r *UpdateLibraryBookRequest) Validate() error {
@@ -82,7 +83,12 @@ func UpdateLibraryBookHandler(c *gin.Context) {
 		}
 	}
 
-	// 2. Atualização de página atual
+	// 2. Atualização de flag de coleção
+	if request.InCollection != nil {
+		userBook.InCollection = *request.InCollection
+	}
+
+	// 3. Atualização de página atual
 	if request.CurrentPage != nil {
 		newPage := *request.CurrentPage
 		if userBook.Book.PageCount > 0 && newPage > userBook.Book.PageCount {

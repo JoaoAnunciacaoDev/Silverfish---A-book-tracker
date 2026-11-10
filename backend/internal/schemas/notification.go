@@ -20,5 +20,6 @@ type NotificationSettings struct {
 	ReminderTime               string    `json:"reminder_time" gorm:"default:'20:00'"`
 	StreakAlertEnabled         bool      `json:"streak_alert_enabled" gorm:"default:true"`
 	SocialNotificationsEnabled bool      `json:"social_notifications_enabled" gorm:"default:true"`
+	LastReminderDate           string    `json:"last_reminder_date" gorm:"default:''"`
 	UpdatedAt                  time.Time `json:"updated_at"`
 }
