@@ -22,37 +22,44 @@ func SanitizePostgresURL(rawURL string) string {
 	return strings.TrimRight(cleaned, "?&")
 }
 
-// SyncSchemas sincroniza todos os schemas GORM garantindo que tabelas e colunas existam independentemente do migrate
+// SyncSchemas sincroniza schemas GORM garantindo compatibilidade.
+// No SQLite (usado em testes/desenvolvimento local), roda AutoMigrate para criar as tabelas.
+// No PostgreSQL (produção serverless no Vercel), o AutoMigrate para 18 modelos é evitado
+// porque realiza dezenas de introspecções e tentativas de drop/create de constraints via rede,
+// ultrapassando o timeout de 30s de inicialização da Vercel. As migrations embutidas (golang-migrate)
+// e queries pontuais cuidam do Postgres de forma instantânea (<200ms).
 func SyncSchemas(db *gorm.DB) error {
-	models := []interface{}{
-		&schemas.User{},
-		&schemas.Session{},
-		&schemas.Book{},
-		&schemas.UserBook{},
-		&schemas.ReadingSession{},
-		&schemas.DailyGoal{},
-		&schemas.GoalHistory{},
-		&schemas.Achievement{},
-		&schemas.UserAchievement{},
-		&schemas.Follow{},
-		&schemas.UserPrivacySettings{},
-		&schemas.Activity{},
-		&schemas.PushSubscription{},
-		&schemas.NotificationSettings{},
-		&schemas.PatchNote{},
-		&schemas.ActivityLike{},
-		&schemas.ActivityComment{},
-		&schemas.BookReview{},
-	}
-
-	for _, m := range models {
-		if err := db.AutoMigrate(m); err != nil {
-			log.Printf("[AutoMigrate] aviso ao sincronizar %T: %v", m, err)
+	if db.Dialector.Name() == "sqlite" {
+		models := []interface{}{
+			&schemas.User{},
+			&schemas.Session{},
+			&schemas.Book{},
+			&schemas.UserBook{},
+			&schemas.ReadingSession{},
+			&schemas.DailyGoal{},
+			&schemas.GoalHistory{},
+			&schemas.Achievement{},
+			&schemas.UserAchievement{},
+			&schemas.Follow{},
+			&schemas.UserPrivacySettings{},
+			&schemas.Activity{},
+			&schemas.PushSubscription{},
+			&schemas.NotificationSettings{},
+			&schemas.PatchNote{},
+			&schemas.ActivityLike{},
+			&schemas.ActivityComment{},
+			&schemas.BookReview{},
 		}
-	}
 
-	// Garante que a coluna in_collection exista mesmo em bancos Postgres existentes
-	_ = db.Exec("ALTER TABLE user_books ADD COLUMN IF NOT EXISTS in_collection BOOLEAN NOT NULL DEFAULT FALSE").Error
+		for _, m := range models {
+			if err := db.AutoMigrate(m); err != nil {
+				log.Printf("[AutoMigrate] aviso ao sincronizar %T: %v", m, err)
+			}
+		}
+	} else {
+		// Garante que a coluna in_collection exista no Postgres imediatamente sem atrasar o boot
+		_ = db.Exec("ALTER TABLE user_books ADD COLUMN IF NOT EXISTS in_collection BOOLEAN NOT NULL DEFAULT FALSE").Error
+	}
 
 	return nil
 }
