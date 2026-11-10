@@ -1,0 +1,18 @@
+name: Hourly Reading Reminders
+
+on:
+  schedule:
+    # Executa a cada hora no minuto 0 (ex: 08:00, 09:00, 20:00, etc.)
+    - cron: '0 * * * *'
+  workflow_dispatch: # Permite disparo manual com 1 clique pela aba Actions do GitHub
+
+jobs:
+  remind:
+    name: Trigger Reminders Endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Silverfish Reminders Endpoint
+        run: |
+          curl -s -f -X POST "https://silverfish-a-book-tracker.vercel.app/api/cron/reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            || echo "Aviso: chamada concluída (verifique logs do endpoint)"
