@@ -12,10 +12,11 @@ import (
 )
 
 type AddToLibraryRequest struct {
-	BookID      string `json:"book_id"`
-	Status      string `json:"status"`
-	CurrentPage int    `json:"current_page"`
-	Favorite    bool   `json:"favorite"`
+	BookID       string `json:"book_id"`
+	Status       string `json:"status"`
+	CurrentPage  int    `json:"current_page"`
+	Favorite     bool   `json:"favorite"`
+	InCollection bool   `json:"in_collection"`
 }
 
 func (r *AddToLibraryRequest) Validate() error {
@@ -79,6 +80,11 @@ func AddToLibraryHandler(c *gin.Context) {
 	var startedAt *time.Time
 	var finishedAt *time.Time
 
+	if request.Status == schemas.StatusInCollection {
+		request.Status = schemas.StatusWantToRead
+		request.InCollection = true
+	}
+
 	if request.Status == schemas.StatusReading {
 		startedAt = &now
 	} else if request.Status == schemas.StatusRead {
@@ -90,16 +96,17 @@ func AddToLibraryHandler(c *gin.Context) {
 	}
 
 	userBook := schemas.UserBook{
-		ID:          uuid.NewString(),
-		UserID:      user.ID,
-		BookID:      book.ID,
-		Status:      request.Status,
-		Favorite:    request.Favorite,
-		CurrentPage: request.CurrentPage,
-		StartedAt:   startedAt,
-		FinishedAt:  finishedAt,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           uuid.NewString(),
+		UserID:       user.ID,
+		BookID:       book.ID,
+		Status:       request.Status,
+		Favorite:     request.Favorite,
+		InCollection: request.InCollection,
+		CurrentPage:  request.CurrentPage,
+		StartedAt:    startedAt,
+		FinishedAt:   finishedAt,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	if err := db.Create(&userBook).Error; err != nil {

@@ -104,19 +104,20 @@ func CreateBookHandler(c *gin.Context) {
 	// Por padrão, ao cadastrar um livro, adiciona-o automaticamente à estante do usuário
 	shouldAddToShelf := request.AddToShelf == nil || *request.AddToShelf
 	if shouldAddToShelf {
-		status := schemas.StatusInCollection
-		if request.ShelfStatus != "" && schemas.IsValidUserBookStatus(request.ShelfStatus) {
+		status := schemas.StatusWantToRead
+		if request.ShelfStatus != "" && schemas.IsValidUserBookStatus(request.ShelfStatus) && request.ShelfStatus != schemas.StatusInCollection {
 			status = request.ShelfStatus
 		}
 		userBook := schemas.UserBook{
-			ID:          uuid.NewString(),
-			UserID:      user.ID,
-			BookID:      book.ID,
-			Status:      status,
-			Favorite:    false,
-			CurrentPage: 0,
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
+			ID:           uuid.NewString(),
+			UserID:       user.ID,
+			BookID:       book.ID,
+			Status:       status,
+			Favorite:     false,
+			InCollection: true,
+			CurrentPage:  0,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		}
 		_ = db.Create(&userBook).Error
 	}

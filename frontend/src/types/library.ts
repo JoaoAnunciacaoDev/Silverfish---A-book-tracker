@@ -8,6 +8,7 @@ export interface UserBook {
   book_id: string
   status: UserBookStatus
   favorite: boolean
+  in_collection: boolean
   current_page: number
   started_at?: string | null
   finished_at?: string | null
@@ -42,9 +43,11 @@ export interface AddToLibraryInput {
   status?: UserBookStatus
   current_page?: number
   favorite?: boolean
+  in_collection?: boolean
 }
 
 export interface UpdateLibraryBookInput {
   status?: UserBookStatus
   current_page?: number
+  in_collection?: boolean
 }

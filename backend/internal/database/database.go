@@ -24,7 +24,7 @@ func SanitizePostgresURL(rawURL string) string {
 
 // SyncSchemas sincroniza todos os schemas GORM garantindo que tabelas e colunas existam independentemente do migrate
 func SyncSchemas(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&schemas.User{},
 		&schemas.Session{},
 		&schemas.Book{},
@@ -43,7 +43,11 @@ func SyncSchemas(db *gorm.DB) error {
 		&schemas.ActivityLike{},
 		&schemas.ActivityComment{},
 		&schemas.BookReview{},
-	)
+	); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Connect conecta ao banco de dados usando as configurações fornecidas e retorna uma instância do GORM DB.

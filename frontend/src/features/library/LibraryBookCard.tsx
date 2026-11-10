@@ -19,6 +19,7 @@ interface LibraryBookCardProps {
   onLogSession?: (item: UserBook) => void
   onChangeStatus: (item: UserBook, newStatus: UserBookStatus) => void
   onToggleFavorite: (id: string) => void
+  onToggleInCollection: (id: string) => void
   onRemove: (id: string) => void
   onOpenReview?: (item: UserBook) => void
 }
@@ -77,6 +78,7 @@ export function LibraryBookCard({
   onLogSession,
   onChangeStatus,
   onToggleFavorite,
+  onToggleInCollection,
   onRemove,
   onOpenReview,
 }: LibraryBookCardProps) {
@@ -115,31 +117,63 @@ export function LibraryBookCard({
                   {item.book.title}
                 </h3>
 
-                {/* Favorito */}
-                <button
-                  onClick={() => onToggleFavorite(item.id)}
-                  className="p-1 text-slate-500 hover:text-rose-400 transition cursor-pointer shrink-0"
-                  title={item.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                >
-                  <Heart
-                    className={`w-4 h-4 transition-transform active:scale-125 ${
-                      item.favorite ? 'fill-rose-500 text-rose-500' : 'hover:text-rose-400'
+                {/* Ações rápidas (Coleção & Favorito) */}
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    onClick={() => onToggleInCollection(item.id)}
+                    className={`p-1 rounded-lg transition cursor-pointer ${
+                      item.in_collection
+                        ? 'text-teal-400 bg-teal-500/10'
+                        : 'text-slate-500 hover:text-teal-400 hover:bg-slate-800'
                     }`}
-                  />
-                </button>
+                    title={
+                      item.in_collection
+                        ? 'Tenho na minha coleção (clique para desmarcar)'
+                        : 'Marcar como: Tenho na minha coleção'
+                    }
+                  >
+                    <Archive
+                      className={`w-3.5 h-3.5 transition-transform active:scale-125 ${
+                        item.in_collection ? 'fill-teal-400/20 text-teal-400' : ''
+                      }`}
+                    />
+                  </button>
+
+                  <button
+                    onClick={() => onToggleFavorite(item.id)}
+                    className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer shrink-0"
+                    title={item.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                  >
+                    <Heart
+                      className={`w-3.5 h-3.5 transition-transform active:scale-125 ${
+                        item.favorite ? 'fill-rose-500 text-rose-500' : 'hover:text-rose-400'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
 
               <p className="text-sm text-slate-400 truncate">{item.book.author}</p>
             </div>
 
-            {/* Status Pill Badge */}
-            <div className="pt-2">
+            {/* Badges de Status e Tag de Coleção */}
+            <div className="pt-2 flex flex-wrap items-center gap-1.5">
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-xs font-semibold ${currentConfig.bg} ${currentConfig.text} ${currentConfig.border}`}
               >
                 <StatusIcon className="w-3.5 h-3.5" />
                 <span>{currentConfig.label}</span>
               </span>
+
+              {item.in_collection && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold bg-teal-500/10 text-teal-400 border-teal-500/20"
+                  title="Tenho este livro na minha coleção física ou digital"
+                >
+                  <Archive className="w-3 h-3" />
+                  <span>Na Coleção</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -263,18 +297,16 @@ export function LibraryBookCard({
                   </button>
                 )}
 
-                {item.status !== 'in_collection' && (
-                  <button
-                    onClick={() => {
-                      onChangeStatus(item, 'in_collection')
-                      setShowMenu(false)
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2"
-                  >
-                    <Archive className="w-3.5 h-3.5 text-teal-400" />
-                    <span>Coleção</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    onToggleInCollection(item.id)
+                    setShowMenu(false)
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2"
+                >
+                  <Archive className={`w-3.5 h-3.5 ${item.in_collection ? 'text-teal-400' : 'text-slate-400'}`} />
+                  <span>{item.in_collection ? 'Remover da Coleção' : 'Marcar na Coleção'}</span>
+                </button>
 
                 {item.status !== 'paused' && (
                   <button

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { addToLibrary } from '@/api/library'
 import type { Book } from '@/types/book'
 import type { UserBook, UserBookStatus } from '@/types/library'
-import { BookMarked, Check, Heart, Loader2, X } from 'lucide-react'
+import { Archive, BookMarked, Check, Heart, Loader2, X } from 'lucide-react'
 
 interface AddToLibraryModalProps {
   book: Book | null
@@ -19,6 +19,7 @@ export function AddToLibraryModal({
 }: AddToLibraryModalProps) {
   const [status, setStatus] = useState<UserBookStatus>('want_to_read')
   const [currentPage, setCurrentPage] = useState(0)
+  const [inCollection, setInCollection] = useState(false)
   const [favorite, setFavorite] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +28,7 @@ export function AddToLibraryModal({
     if (isOpen) {
       setStatus('want_to_read')
       setCurrentPage(0)
+      setInCollection(false)
       setFavorite(false)
       setError(null)
     }
@@ -43,6 +45,7 @@ export function AddToLibraryModal({
         book_id: book.id,
         status,
         current_page: status === 'reading' ? currentPage : 0,
+        in_collection: inCollection,
         favorite,
       })
       onSuccess(res.item)
@@ -99,8 +102,8 @@ export function AddToLibraryModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-300">Escolha a Categoria</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <label className="text-xs font-medium text-slate-300">Status de Leitura</label>
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setStatus('want_to_read')}
@@ -139,19 +142,6 @@ export function AddToLibraryModal({
                 <span>Já Lido</span>
                 {status === 'read' && <Check className="w-3.5 h-3.5" />}
               </button>
-
-              <button
-                type="button"
-                onClick={() => setStatus('in_collection')}
-                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex flex-col items-center gap-1 ${
-                  status === 'in_collection'
-                    ? 'bg-teal-500/10 border-teal-500/40 text-teal-400'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                <span>Na Coleção</span>
-                {status === 'in_collection' && <Check className="w-3.5 h-3.5" />}
-              </button>
             </div>
           </div>
 
@@ -170,7 +160,21 @@ export function AddToLibraryModal({
             </div>
           )}
 
-          <div className="flex items-center space-x-2 pt-1">
+          {/* Tags opcionais (Posse e Favorito) */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setInCollection(!inCollection)}
+              className={`p-2 rounded-xl border transition cursor-pointer flex items-center space-x-2 text-xs font-medium ${
+                inCollection
+                  ? 'bg-teal-500/10 border-teal-500/30 text-teal-400'
+                  : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+            >
+              <Archive className={`w-4 h-4 ${inCollection ? 'fill-teal-400/20 text-teal-400' : ''}`} />
+              <span>Tenho na Coleção</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setFavorite(!favorite)}
@@ -181,7 +185,7 @@ export function AddToLibraryModal({
               }`}
             >
               <Heart className={`w-4 h-4 ${favorite ? 'fill-rose-400 text-rose-400' : ''}`} />
-              <span>Marcar como Favorito</span>
+              <span>Favorito</span>
             </button>
           </div>
 
