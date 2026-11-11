@@ -342,15 +342,15 @@ func CronRemindersHandler(c *gin.Context) {
 	// Proteção opcional por CRON_SECRET (usada pela Vercel Cron ou cron-job externo)
 	expectedSecret := ""
 	if cfg != nil && cfg.CronSecret != "" {
-		expectedSecret = cfg.CronSecret
+		expectedSecret = strings.TrimSpace(cfg.CronSecret)
 	} else {
 		expectedSecret = strings.TrimSpace(os.Getenv("CRON_SECRET"))
 	}
 
 	if expectedSecret != "" {
-		authHeader := c.GetHeader("Authorization")
-		querySecret := c.Query("secret")
-		bearerSecret := strings.TrimPrefix(authHeader, "Bearer ")
+		authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
+		querySecret := strings.TrimSpace(c.Query("secret"))
+		bearerSecret := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 
 		if bearerSecret != expectedSecret && querySecret != expectedSecret {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "não autorizado (CRON_SECRET inválido ou ausente)"})
