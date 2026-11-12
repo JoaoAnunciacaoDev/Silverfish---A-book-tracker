@@ -5,6 +5,7 @@ import { listLibrary } from '@/api/library'
 import type { ReadingSession } from '@/types/reading'
 import type { UserBook } from '@/types/library'
 import { LogSessionModal } from '@/features/reading/LogSessionModal'
+import { formatSessionDate } from '@/utils/date'
 
 const EMPTY_SESSIONS: ReadingSession[] = []
 const EMPTY_LIBRARY_BOOKS: UserBook[] = []
@@ -13,9 +14,9 @@ import {
   Calendar,
   Filter,
   Loader2,
-  MessageSquare,
+  NotebookPen,
+  Pencil,
   Plus,
-  Quote,
   ScrollText,
   Smile,
   Star,
@@ -44,6 +45,7 @@ export function JournalPage() {
   const [selectedFeeling, setSelectedFeeling] = useState<string>('Todos')
   const [selectedBookId, setSelectedBookId] = useState<string>('all')
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
+  const [sessionToEdit, setSessionToEdit] = useState<ReadingSession | null>(null)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -254,7 +256,7 @@ export function JournalPage() {
       ) : (
         <div className="relative border-l border-slate-800/80 ml-3 sm:ml-6 pl-4 sm:pl-8 space-y-6">
           {filteredSessions.map((session) => {
-            const formattedDate = new Date(session.read_at + 'T12:00:00').toLocaleDateString('pt-BR', {
+            const formattedDate = formatSessionDate(session.read_at, {
               day: '2-digit',
               month: 'long',
               year: 'numeric',
@@ -275,7 +277,7 @@ export function JournalPage() {
                       <span>{formattedDate}</span>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end space-x-3">
+                    <div className="flex items-center justify-between sm:justify-end space-x-2">
                       {session.feeling && (
                         <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                           <Smile className="w-3.5 h-3.5 text-emerald-400" />
@@ -283,13 +285,24 @@ export function JournalPage() {
                         </span>
                       )}
 
-                      <button
-                        onClick={() => setSessionToDelete(session.id)}
-                        className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition opacity-60 group-hover:opacity-100 cursor-pointer"
-                        title="Excluir registro de leitura"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          type="button"
+                          onClick={() => setSessionToEdit(session)}
+                          className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition sm:opacity-70 group-hover:opacity-100 cursor-pointer"
+                          title="Editar registro de leitura"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSessionToDelete(session.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition sm:opacity-70 group-hover:opacity-100 cursor-pointer"
+                          title="Excluir registro de leitura"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -346,16 +359,16 @@ export function JournalPage() {
                     </div>
                   )}
 
-                  {/* Reflexões / Notas Pessoais */}
+                  {/* Anotações de leitura */}
                   {session.notes && (
-                    <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5 relative overflow-hidden">
-                      <Quote className="absolute right-2 bottom-1 w-10 h-10 text-slate-800/30 -rotate-12 pointer-events-none" />
-                      <div className="flex items-start space-x-2.5">
-                        <MessageSquare className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-slate-200 italic leading-relaxed whitespace-pre-line">
-                          "{session.notes}"
-                        </p>
+                    <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
+                      <div className="flex items-center space-x-1.5 text-[11px] font-semibold text-emerald-400/90">
+                        <NotebookPen className="w-3.5 h-3.5 shrink-0" />
+                        <span>Anotações de leitura</span>
                       </div>
+                      <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+                        {session.notes}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -394,10 +407,14 @@ export function JournalPage() {
         </div>
       )}
 
-      {/* Modal de Registro de Sessão */}
+      {/* Modal de Registro / Edição de Sessão */}
       <LogSessionModal
-        isOpen={isLogModalOpen}
-        onClose={() => setIsLogModalOpen(false)}
+        isOpen={isLogModalOpen || Boolean(sessionToEdit)}
+        onClose={() => {
+          setIsLogModalOpen(false)
+          setSessionToEdit(null)
+        }}
+        editingSession={sessionToEdit}
         availableBooks={activeBooks}
         onSuccess={handleSessionLogged}
       />

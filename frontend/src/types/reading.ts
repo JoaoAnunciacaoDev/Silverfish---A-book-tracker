@@ -25,6 +25,15 @@ export interface CreateReadingSessionInput {
   notes?: string
 }
 
+export interface UpdateReadingSessionInput {
+  start_page: number
+  end_page: number
+  read_at?: string
+  comprehension?: number | null
+  feeling?: string | null
+  notes?: string | null
+}
+
 export interface TodayReadingSummary {
   date: string
   total_pages_read: number

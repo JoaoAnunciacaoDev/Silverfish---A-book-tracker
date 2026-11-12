@@ -1,6 +1,10 @@
 package schemas
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type DailyGoal struct {
 	ID              string    `json:"id" gorm:"primaryKey"`
@@ -22,4 +26,9 @@ type GoalHistory struct {
 
 func (GoalHistory) TableName() string {
 	return "goal_history"
+}
+
+func (g *GoalHistory) AfterFind(_ *gorm.DB) error {
+	g.Date = NormalizeDateOnly(g.Date)
+	return nil
 }

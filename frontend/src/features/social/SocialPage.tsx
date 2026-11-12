@@ -9,15 +9,18 @@ import {
   getPendingFollows,
   respondFollowRequest,
   toggleActivityLike,
+  getActivityLikes,
   getActivityComments,
   createActivityComment,
 } from '@/api/social'
 import type {
   ActivityItem,
   ActivityComment,
+  ActivityLiker,
   LeaderboardEntry,
   UserSearchResult,
 } from '@/types/social'
+import { useAuth } from '@/features/auth/AuthContext'
 import { UserProfileModal } from './UserProfileModal'
 import { triggerConfetti } from '@/components/ui/confetti'
 import {
@@ -37,6 +40,7 @@ import {
   RefreshCw,
   Sparkles,
   Heart,
+  Loader2,
   MessageSquare,
   Send,
   Calendar,
@@ -47,6 +51,7 @@ const RANKING_YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - 
 
 export function SocialPage() {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuth()
   const [activeTab, setActiveTab] = useState<'feed' | 'rankings' | 'discover'>('feed')
 
   // Comments & Likes State
@@ -55,6 +60,9 @@ export function SocialPage() {
   const [isCommentsLoading, setIsCommentsLoading] = useState(false)
   const [commentInput, setCommentInput] = useState('')
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
+  const [likesModalActivityId, setLikesModalActivityId] = useState<string | null>(null)
+  const [activityLikers, setActivityLikers] = useState<ActivityLiker[]>([])
+  const [isLikersLoading, setIsLikersLoading] = useState(false)
 
   // Rankings State
   const [rankingCriterion, setRankingCriterion] = useState<'pages' | 'books' | 'streak'>('pages')
@@ -116,18 +124,50 @@ export function SocialPage() {
       }
 
       updateCachedActivities((prev) =>
-        prev.map((act) =>
-          act.id === activityId
-            ? {
-                ...act,
-                has_liked: res.liked,
-                likes_count: res.likes_count,
-              }
-            : act
-        )
+        prev.map((act) => {
+          if (act.id !== activityId) return act
+          const existingLikedBy = act.liked_by ?? []
+          let nextLikedBy = existingLikedBy
+
+          if (currentUser) {
+            const withoutCurrent = existingLikedBy.filter((u) => u.id !== currentUser.id)
+            nextLikedBy = res.liked
+              ? [
+                  {
+                    id: currentUser.id,
+                    username: currentUser.username,
+                    display_name: currentUser.display_name,
+                    avatar_url: currentUser.avatar_url,
+                  },
+                  ...withoutCurrent,
+                ].slice(0, 3)
+              : withoutCurrent
+          }
+
+          return {
+            ...act,
+            has_liked: res.liked,
+            likes_count: res.likes_count,
+            liked_by: nextLikedBy,
+          }
+        })
       )
     } catch (err: any) {
       console.error('Erro ao curtir atividade:', err)
+    }
+  }
+
+  const handleOpenLikesModal = async (item: ActivityItem) => {
+    setLikesModalActivityId(item.id)
+    setActivityLikers(item.liked_by ?? [])
+    setIsLikersLoading(true)
+    try {
+      const res = await getActivityLikes(item.id)
+      setActivityLikers(res.likes || [])
+    } catch (err: any) {
+      console.error('Erro ao carregar curtidas:', err)
+    } finally {
+      setIsLikersLoading(false)
     }
   }
 
@@ -499,9 +539,10 @@ export function SocialPage() {
                     </div>
 
                     {/* BARRA DE INTERAÇÕES SOCIAIS: CURTIDAS & COMENTÁRIOS */}
-                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                      <div className="flex items-center gap-4">
+                    <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                      <div className="flex items-center gap-3">
                         <button
+                          type="button"
                           onClick={() => handleToggleLike(item.id)}
                           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition cursor-pointer ${
                             item.has_liked
@@ -518,6 +559,7 @@ export function SocialPage() {
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => handleToggleComments(item.id)}
                           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition cursor-pointer ${
                             isCommentsOpen
@@ -529,6 +571,42 @@ export function SocialPage() {
                           <span>{item.comments_count || 0}</span>
                         </button>
                       </div>
+
+                      {(item.likes_count || 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLikesModal(item)}
+                          className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white transition cursor-pointer py-1"
+                          title="Ver quem curtiu esta postagem"
+                        >
+                          {item.liked_by && item.liked_by.length > 0 ? (
+                            <>
+                              <span className="flex -space-x-1.5">
+                                {item.liked_by.slice(0, 3).map((liker) => (
+                                  <span
+                                    key={liker.id}
+                                    className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-300 border border-slate-900 font-bold text-[10px] flex items-center justify-center"
+                                  >
+                                    {liker.display_name?.charAt(0).toUpperCase() || 'U'}
+                                  </span>
+                                ))}
+                              </span>
+                              <span>
+                                Curtido por{' '}
+                                <strong className="text-slate-200 font-semibold">
+                                  {item.liked_by[0].display_name}
+                                </strong>
+                                {(item.likes_count || 0) > 1 &&
+                                  ` e mais ${(item.likes_count || 0) - 1}`}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="underline decoration-slate-600 underline-offset-2">
+                              Ver quem curtiu ({item.likes_count})
+                            </span>
+                          )}
+                        </button>
+                      )}
                     </div>
 
                     {/* GAVETA DE COMENTÁRIOS EXPANSÍVEL */}
@@ -900,6 +978,70 @@ export function SocialPage() {
               <p>Digite um nome ou arroba para encontrar leitores e expandir seu círculo de leitura.</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal de Quem Curtiu a Postagem */}
+      {likesModalActivityId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="shrink-0 flex items-center justify-between px-4 py-3.5 sm:px-5 sm:py-4 border-b border-slate-800 bg-slate-900/80">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20">
+                  <Heart className="w-4 h-4 fill-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">Curtidas na publicação</h3>
+                  <p className="text-[11px] text-slate-400">
+                    {activityLikers.length} {activityLikers.length === 1 ? 'pessoa curtiu' : 'pessoas curtiram'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLikesModalActivityId(null)}
+                className="p-1.5 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-full transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-2.5">
+              {isLikersLoading && activityLikers.length === 0 ? (
+                <div className="py-10 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-rose-400" />
+                  <span className="text-xs">Carregando curtidas...</span>
+                </div>
+              ) : activityLikers.length === 0 ? (
+                <div className="py-10 text-center text-xs text-slate-500">
+                  Nenhuma curtida encontrada.
+                </div>
+              ) : (
+                activityLikers.map((liker) => (
+                  <button
+                    type="button"
+                    key={liker.id}
+                    onClick={() => {
+                      setLikesModalActivityId(null)
+                      setSelectedUsername(liker.username)
+                    }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-slate-950/60 hover:bg-slate-800/70 border border-slate-800/80 transition text-left cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white font-bold flex items-center justify-center text-sm shrink-0">
+                      {liker.display_name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-bold text-white truncate">
+                        {liker.display_name}
+                      </p>
+                      <p className="text-[11px] text-slate-400 font-mono truncate">@{liker.username}</p>
+                    </div>
+                    <Heart className="w-4 h-4 text-rose-400 fill-rose-400 shrink-0" />
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 

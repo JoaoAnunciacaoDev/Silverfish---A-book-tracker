@@ -34,8 +34,11 @@ func AdminDashboardStatsHandler(c *gin.Context) {
 
 	// Usuários ativos no mês atual (com sessões de leitura registradas)
 	currentMonth := time.Now().Format("2006-01")
-	monthStart := currentMonth + "-01"
-	monthEnd := currentMonth + "-31"
+	monthStart, monthEnd, ok := getMonthDateBounds(currentMonth)
+	if !ok {
+		monthStart = currentMonth + "-01"
+		monthEnd = time.Now().Format("2006-01-02")
+	}
 	var activeUsersThisMonth int64
 	_ = db.Model(&schemas.ReadingSession{}).
 		Where("read_at >= ? AND read_at <= ?", monthStart, monthEnd).

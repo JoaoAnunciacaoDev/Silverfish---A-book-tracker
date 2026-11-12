@@ -4,6 +4,7 @@ import { getDashboardStats, getHeatmapData } from '@/api/stats'
 import { listAchievements } from '@/api/achievements'
 import type { DayActivity } from '@/types/stats'
 import { AchievementsView } from '@/features/achievements/AchievementsView'
+import { extractDateOnly, formatSessionDate } from '@/utils/date'
 
 const EMPTY_ACTIVITIES: DayActivity[] = []
 import {
@@ -52,7 +53,10 @@ export function DashboardPage() {
   const activityMap = useMemo(() => {
     const map = new Map<string, { pages: number; sessions: number }>()
     for (const act of activities) {
-      map.set(act.date, { pages: act.pages, sessions: act.sessions })
+      const dateKey = extractDateOnly(act.date)
+      if (dateKey) {
+        map.set(dateKey, { pages: act.pages, sessions: act.sessions })
+      }
     }
     return map
   }, [activities])
@@ -309,11 +313,7 @@ export function DashboardPage() {
           {hoveredDay ? (
             <span className="inline-flex items-center gap-2 bg-slate-950 px-3 py-1 rounded-full border border-slate-800">
               <span className="font-semibold text-emerald-400">{hoveredDay.pages} páginas</span> em{' '}
-              {new Date(hoveredDay.date + 'T12:00:00').toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric',
-              })}{' '}
+              {formatSessionDate(hoveredDay.date)}{' '}
               ({hoveredDay.sessions} {hoveredDay.sessions === 1 ? 'sessão' : 'sessões'})
             </span>
           ) : (

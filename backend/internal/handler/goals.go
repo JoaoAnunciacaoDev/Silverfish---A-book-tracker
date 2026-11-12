@@ -104,16 +104,32 @@ func UpdateGoalHandler(c *gin.Context) {
 	})
 }
 
+// getMonthDateBounds retorna primeiro e último dia válidos ("YYYY-MM-DD") de um mês "YYYY-MM".
+func getMonthDateBounds(yearMonth string) (string, string, bool) {
+	t, err := time.Parse("2006-01", strings.TrimSpace(yearMonth))
+	if err != nil {
+		return "", "", false
+	}
+	firstDay := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+	lastDay := firstDay.AddDate(0, 1, -1)
+	return firstDay.Format("2006-01-02"), lastDay.Format("2006-01-02"), true
+}
+
 func calculateStreaks(historyList []schemas.GoalHistory, today string) (currentStreak int, bestStreak int) {
 	if len(historyList) == 0 {
 		return 0, 0
 	}
 
+	today = schemas.NormalizeDateOnly(today)
+
 	// Mapeia datas cumpridas em conjunto para busca O(1)
 	metDates := make(map[string]bool)
 	for _, h := range historyList {
 		if h.Met {
-			metDates[h.Date] = true
+			dateKey := schemas.NormalizeDateOnly(h.Date)
+			if dateKey != "" {
+				metDates[dateKey] = true
+			}
 		}
 	}
 
@@ -164,20 +180,18 @@ func calculateStreaks(historyList []schemas.GoalHistory, today string) (currentS
 			continue
 		}
 
-		currentDate, err := time.Parse("2006-01-02", h.Date)
+		dateKey := schemas.NormalizeDateOnly(h.Date)
+		currentDate, err := time.Parse("2006-01-02", dateKey)
 		if err != nil {
 			continue
 		}
 
 		if i == 0 || tempStreak == 0 {
 			tempStreak = 1
-		} else {
-			diffDays := int(prevDate.Sub(currentDate).Hours() / 24)
-			if diffDays == 1 {
-				tempStreak++
-			} else {
-				tempStreak = 1
-			}
+		} else if prevDate.AddDate(0, 0, -1).Format("2006-01-02") == dateKey {
+			tempStreak++
+		} else if prevDate.Format("2006-01-02") != dateKey {
+			tempStreak = 1
 		}
 
 		prevDate = currentDate
@@ -204,10 +218,18 @@ func GetStreakHandler(c *gin.Context) {
 
 	currentStreak, bestStreak := calculateStreaks(historyList, today)
 
+	todayMet := false
+	for _, h := range historyList {
+		if schemas.NormalizeDateOnly(h.Date) == today && h.Met {
+			todayMet = true
+			break
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"current_streak": currentStreak,
 		"best_streak":    bestStreak,
-		"today_met":      len(historyList) > 0 && historyList[0].Date == today && historyList[0].Met,
+		"today_met":      todayMet,
 	})
 }
 
@@ -219,7 +241,12 @@ func GetGoalHistoryHandler(c *gin.Context) {
 
 	query := db.Model(&schemas.GoalHistory{}).Where("user_id = ?", user.ID)
 	if month != "" {
-		query = query.Where("date >= ? AND date <= ?", month+"-01", month+"-31")
+		monthStart, monthEnd, ok := getMonthDateBounds(month)
+		if !ok {
+			sendError(c, http.StatusBadRequest, "formato de mes invalido (use YYYY-MM)")
+			return
+		}
+		query = query.Where("date >= ? AND date <= ?", monthStart, monthEnd)
 	}
 
 	var history []schemas.GoalHistory

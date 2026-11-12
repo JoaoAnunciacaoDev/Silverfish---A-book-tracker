@@ -1,22 +1,27 @@
 import { useEffect, useState } from 'react'
 import { deleteReadingSession, listReadingSessions } from '@/api/reading'
 import type { ReadingSession } from '@/types/reading'
-import { Calendar, Clock, Loader2, Trash2, X } from 'lucide-react'
+import { formatSessionDate } from '@/utils/date'
+import { LogSessionModal } from './LogSessionModal'
+import { Calendar, Clock, Loader2, NotebookPen, Pencil, Trash2, X } from 'lucide-react'
 
 interface ReadingHistoryModalProps {
   isOpen: boolean
   onClose: () => void
   onSessionDeleted?: () => void
+  onSessionUpdated?: () => void
 }
 
 export function ReadingHistoryModal({
   isOpen,
   onClose,
   onSessionDeleted,
+  onSessionUpdated,
 }: ReadingHistoryModalProps) {
   const [sessions, setSessions] = useState<ReadingSession[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingSession, setEditingSession] = useState<ReadingSession | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -103,7 +108,13 @@ export function ReadingHistoryModal({
                   <div className="flex items-center space-x-3 text-[11px] text-slate-400">
                     <span className="flex items-center space-x-1">
                       <Calendar className="w-3 h-3 text-slate-500" />
-                      <span>{session.read_at}</span>
+                      <span>
+                        {formatSessionDate(session.read_at, {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
                     </span>
                     {session.feeling && (
                       <span className="bg-slate-800 px-2 py-0.5 rounded text-slate-300">
@@ -113,29 +124,56 @@ export function ReadingHistoryModal({
                   </div>
 
                   {session.notes && (
-                    <p className="text-xs text-slate-300 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80 mt-1.5 italic">
-                      "{session.notes}"
-                    </p>
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80 mt-1.5 space-y-1">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400/90">
+                        <NotebookPen className="w-3 h-3" />
+                        Anotações de leitura
+                      </span>
+                      <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                        {session.notes}
+                      </p>
+                    </div>
                   )}
                 </div>
 
-                <button
-                  onClick={() => handleDelete(session.id)}
-                  disabled={deletingId === session.id}
-                  className="p-2 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition cursor-pointer shrink-0"
-                  title="Excluir sessao"
-                >
-                  {deletingId === session.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                </button>
+                <div className="flex items-center space-x-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setEditingSession(session)}
+                    className="p-2 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                    title="Editar registro"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(session.id)}
+                    disabled={deletingId === session.id}
+                    className="p-2 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+                    title="Excluir sessao"
+                  >
+                    {deletingId === session.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             ))
           )}
         </div>
       </div>
+
+      <LogSessionModal
+        isOpen={Boolean(editingSession)}
+        editingSession={editingSession}
+        onClose={() => setEditingSession(null)}
+        onSuccess={(updated) => {
+          setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+          onSessionUpdated?.()
+        }}
+      />
     </div>
   )
 }

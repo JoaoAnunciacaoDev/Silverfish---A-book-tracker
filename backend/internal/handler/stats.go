@@ -38,8 +38,11 @@ func GetDashboardStatsHandler(c *gin.Context) {
 
 	yearStart := currentYear + "-01-01"
 	yearEnd := currentYear + "-12-31"
-	monthStart := currentMonth + "-01"
-	monthEnd := currentMonth + "-31"
+	monthStart, monthEnd, ok := getMonthDateBounds(currentMonth)
+	if !ok {
+		monthStart = currentMonth + "-01"
+		monthEnd = today
+	}
 
 	// 1. Livros lidos, lendo, na coleção e contagem histórica por ano em 1 consulta enxuta
 	type userBookStatRow struct {
@@ -213,6 +216,10 @@ func GetHeatmapHandler(c *gin.Context) {
 		Group("read_at").
 		Order("read_at ASC").
 		Scan(&activities)
+
+	for i := range activities {
+		activities[i].Date = schemas.NormalizeDateOnly(activities[i].Date)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"start_date": startDate,

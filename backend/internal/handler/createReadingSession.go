@@ -24,7 +24,7 @@ type CreateReadingSessionRequest struct {
 
 func (r *CreateReadingSessionRequest) Validate() error {
 	r.UserBookID = strings.TrimSpace(r.UserBookID)
-	r.ReadAt = strings.TrimSpace(r.ReadAt)
+	r.ReadAt = schemas.NormalizeDateOnly(r.ReadAt)
 
 	if r.UserBookID == "" {
 		return errors.New("o campo user_book_id e obrigatorio")
@@ -40,6 +40,11 @@ func (r *CreateReadingSessionRequest) Validate() error {
 	}
 	if r.Comprehension != nil && (*r.Comprehension < 1 || *r.Comprehension > 5) {
 		return errors.New("a compreensao deve ser uma nota de 1 a 5")
+	}
+	if r.ReadAt != "" {
+		if _, err := time.Parse("2006-01-02", r.ReadAt); err != nil {
+			return errors.New("a data da leitura deve estar no formato YYYY-MM-DD")
+		}
 	}
 
 	return nil

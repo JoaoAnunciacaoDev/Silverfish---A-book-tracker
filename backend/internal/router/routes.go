@@ -90,6 +90,7 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 			sessions.POST("", handler.CreateReadingSessionHandler)
 			sessions.GET("", handler.ListReadingSessionsHandler)
 			sessions.GET("/today", handler.TodayReadingSummaryHandler)
+			sessions.PUT("/:id", handler.UpdateReadingSessionHandler)
 			sessions.DELETE("/:id", handler.DeleteReadingSessionHandler)
 		}
 
@@ -136,6 +137,7 @@ func initializeRoutes(r *gin.Engine, cfg *config.Config, db *gorm.DB) {
 		{
 			social.GET("/feed", handler.GetFeedHandler)
 			social.GET("/rankings", handler.GetLeaderboardHandler)
+			social.GET("/activities/:id/likes", handler.ListActivityLikesHandler)
 			social.POST("/activities/:id/like", handler.ToggleActivityLikeHandler)
 			social.GET("/activities/:id/comments", handler.ListActivityCommentsHandler)
 			social.POST("/activities/:id/comments", handler.CreateActivityCommentHandler)

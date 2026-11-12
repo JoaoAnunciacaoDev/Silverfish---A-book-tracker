@@ -74,11 +74,19 @@ func GetFeedHandler(c *gin.Context) {
 		return
 	}
 
+	type ActivityLikerSummary struct {
+		ID          string `json:"id"`
+		Username    string `json:"username"`
+		DisplayName string `json:"display_name"`
+		AvatarURL   string `json:"avatar_url"`
+	}
+
 	type ActivityFeedView struct {
 		schemas.Activity
-		LikesCount    int64 `json:"likes_count"`
-		HasLiked      bool  `json:"has_liked"`
-		CommentsCount int64 `json:"comments_count"`
+		LikesCount    int64                  `json:"likes_count"`
+		HasLiked      bool                   `json:"has_liked"`
+		CommentsCount int64                  `json:"comments_count"`
+		LikedBy       []ActivityLikerSummary `json:"liked_by"`
 	}
 
 	feedViews := make([]ActivityFeedView, 0, len(activities))
@@ -105,13 +113,26 @@ func GetFeedHandler(c *gin.Context) {
 			likesMap[lc.ActivityID] = lc.Total
 		}
 
-		var userLikes []string
-		_ = db.Model(&schemas.ActivityLike{}).
-			Where("activity_id IN (?) AND user_id = ?", actIDs, user.ID).
-			Pluck("activity_id", &userLikes).Error
-		userLikedMap := make(map[string]bool, len(userLikes))
-		for _, id := range userLikes {
-			userLikedMap[id] = true
+		var allLikes []schemas.ActivityLike
+		_ = db.Preload("User").
+			Where("activity_id IN (?)", actIDs).
+			Order("created_at DESC").
+			Find(&allLikes).Error
+
+		likedByMap := make(map[string][]ActivityLikerSummary, len(activities))
+		userLikedMap := make(map[string]bool, len(activities))
+		for _, like := range allLikes {
+			if like.UserID == user.ID {
+				userLikedMap[like.ActivityID] = true
+			}
+			if like.User.ID != "" && len(likedByMap[like.ActivityID]) < 3 {
+				likedByMap[like.ActivityID] = append(likedByMap[like.ActivityID], ActivityLikerSummary{
+					ID:          like.User.ID,
+					Username:    like.User.Username,
+					DisplayName: like.User.DisplayName,
+					AvatarURL:   like.User.AvatarURL,
+				})
+			}
 		}
 
 		var commentCounts []ActCount
@@ -126,11 +147,16 @@ func GetFeedHandler(c *gin.Context) {
 		}
 
 		for _, act := range activities {
+			likedBy := likedByMap[act.ID]
+			if likedBy == nil {
+				likedBy = []ActivityLikerSummary{}
+			}
 			feedViews = append(feedViews, ActivityFeedView{
 				Activity:      act,
 				LikesCount:    likesMap[act.ID],
 				HasLiked:      userLikedMap[act.ID],
 				CommentsCount: commentsMap[act.ID],
+				LikedBy:       likedBy,
 			})
 		}
 	}
@@ -420,10 +446,15 @@ func GetLeaderboardHandler(c *gin.Context) {
 		endPages = year + "-12-31"
 		periodLabelYear = year
 	} else if month != "" {
-		startPeriod = month + "-01 00:00:00"
-		endPeriod = month + "-31 23:59:59"
-		startPages = month + "-01"
-		endPages = month + "-31"
+		mStart, mEnd, ok := getMonthDateBounds(month)
+		if !ok {
+			sendError(c, http.StatusBadRequest, "formato de mes invalido (use YYYY-MM)")
+			return
+		}
+		startPeriod = mStart + " 00:00:00"
+		endPeriod = mEnd + " 23:59:59"
+		startPages = mStart
+		endPages = mEnd
 	} else {
 		// Padrão: ano corrente
 		isAnnual = true

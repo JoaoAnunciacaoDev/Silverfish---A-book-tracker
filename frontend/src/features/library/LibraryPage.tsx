@@ -469,6 +469,10 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
           invalidateLibraryAndStats(true)
           setGoalRefreshKey((k) => k + 1)
         }}
+        onSessionUpdated={() => {
+          invalidateLibraryAndStats(true)
+          setGoalRefreshKey((k) => k + 1)
+        }}
       />
     </div>
   )

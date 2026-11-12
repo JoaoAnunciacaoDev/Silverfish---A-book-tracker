@@ -57,6 +57,53 @@ func ToggleActivityLikeHandler(c *gin.Context) {
 	})
 }
 
+// ListActivityLikesHandler lista os usuários que curtiram uma atividade do feed
+func ListActivityLikesHandler(c *gin.Context) {
+	activityID := c.Param("id")
+
+	var activity schemas.Activity
+	if err := db.First(&activity, "id = ?", activityID).Error; err != nil {
+		sendError(c, http.StatusNotFound, "atividade não encontrada")
+		return
+	}
+
+	var likes []schemas.ActivityLike
+	if err := db.Preload("User").
+		Where("activity_id = ?", activityID).
+		Order("created_at DESC").
+		Find(&likes).Error; err != nil {
+		sendError(c, http.StatusInternalServerError, "erro ao carregar curtidas")
+		return
+	}
+
+	type ActivityLikeUserView struct {
+		ID          string    `json:"id"`
+		Username    string    `json:"username"`
+		DisplayName string    `json:"display_name"`
+		AvatarURL   string    `json:"avatar_url"`
+		LikedAt     time.Time `json:"liked_at"`
+	}
+
+	likers := make([]ActivityLikeUserView, 0, len(likes))
+	for _, like := range likes {
+		if like.User.ID == "" {
+			continue
+		}
+		likers = append(likers, ActivityLikeUserView{
+			ID:          like.User.ID,
+			Username:    like.User.Username,
+			DisplayName: like.User.DisplayName,
+			AvatarURL:   like.User.AvatarURL,
+			LikedAt:     like.CreatedAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"likes": likers,
+		"total": len(likers),
+	})
+}
+
 // ListActivityCommentsHandler lista os comentários de uma atividade
 func ListActivityCommentsHandler(c *gin.Context) {
 	activityID := c.Param("id")

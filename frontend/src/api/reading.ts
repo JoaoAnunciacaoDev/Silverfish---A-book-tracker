@@ -3,6 +3,7 @@ import type {
   CreateReadingSessionInput,
   ReadingSession,
   TodayReadingSummary,
+  UpdateReadingSessionInput,
 } from '@/types/reading'
 
 export async function createReadingSession(
@@ -10,6 +11,16 @@ export async function createReadingSession(
 ): Promise<{ message: string; session: ReadingSession }> {
   return apiClient<{ message: string; session: ReadingSession }>('/api/reading-sessions', {
     method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export async function updateReadingSession(
+  id: string,
+  input: UpdateReadingSessionInput
+): Promise<{ message: string; session: ReadingSession }> {
+  return apiClient<{ message: string; session: ReadingSession }>(`/api/reading-sessions/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(input),
   })
 }

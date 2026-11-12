@@ -13,6 +13,14 @@ export type ActivityType =
   | 'ACHIEVEMENT_UNLOCKED'
   | 'PATCH_NOTE_PUBLISHED'
 
+export interface ActivityLiker {
+  id: string
+  username: string
+  display_name: string
+  avatar_url?: string
+  liked_at?: string
+}
+
 export interface ActivityComment {
   id: string
   activity_id: string
@@ -34,6 +42,7 @@ export interface ActivityItem {
   likes_count?: number
   has_liked?: boolean
   comments_count?: number
+  liked_by?: ActivityLiker[]
 }
 
 export interface ActivityMetadata {

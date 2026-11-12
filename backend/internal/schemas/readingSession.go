@@ -1,6 +1,21 @@
 package schemas
 
-import "time"
+import (
+	"strings"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+// NormalizeDateOnly garante que datas vindas de colunas DATE (como "2026-11-11T00:00:00Z" no Postgres)
+// sejam normalizadas para "YYYY-MM-DD".
+func NormalizeDateOnly(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) >= 10 && trimmed[4] == '-' && trimmed[7] == '-' {
+		return trimmed[:10]
+	}
+	return trimmed
+}
 
 type ReadingSession struct {
 	ID            string    `json:"id" gorm:"primaryKey"`
@@ -16,4 +31,9 @@ type ReadingSession struct {
 	CreatedAt     time.Time `json:"created_at"`
 
 	UserBook UserBook `json:"user_book" gorm:"foreignKey:UserBookID"`
+}
+
+func (r *ReadingSession) AfterFind(_ *gorm.DB) error {
+	r.ReadAt = NormalizeDateOnly(r.ReadAt)
+	return nil
 }

@@ -2,6 +2,7 @@ import { apiClient } from './client'
 import type {
   ActivityItem,
   ActivityComment,
+  ActivityLiker,
   LeaderboardEntry,
   UserProfile,
   UserPrivacySettings,
@@ -44,6 +45,13 @@ export async function toggleActivityLike(activityId: string): Promise<{
   return apiClient(`/api/social/activities/${activityId}/like`, {
     method: 'POST',
   })
+}
+
+export async function getActivityLikes(activityId: string): Promise<{
+  likes: ActivityLiker[]
+  total: number
+}> {
+  return apiClient(`/api/social/activities/${activityId}/likes`)
 }
 
 export async function getActivityComments(activityId: string): Promise<{

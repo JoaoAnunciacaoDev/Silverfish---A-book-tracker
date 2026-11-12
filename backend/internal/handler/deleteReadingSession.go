@@ -26,8 +26,7 @@ func DeleteReadingSessionHandler(c *gin.Context) {
 			return errors.New("livro da estante associado nao encontrado")
 		}
 
-		date := session.ReadAt
-		userBookID := session.UserBookID
+		date := schemas.NormalizeDateOnly(session.ReadAt)
 
 		// Exclui a sessao
 		if err := tx.Delete(&session).Error; err != nil {
@@ -35,34 +34,7 @@ func DeleteReadingSessionHandler(c *gin.Context) {
 		}
 
 		// Recalcula o progresso e o status da estante com base nas sessoes restantes
-		var remainingSessions []schemas.ReadingSession
-		if err := tx.Where("user_book_id = ?", userBookID).Order("end_page DESC").Find(&remainingSessions).Error; err != nil {
-			return err
-		}
-
-		now := time.Now()
-		if len(remainingSessions) > 0 {
-			userBook.CurrentPage = remainingSessions[0].EndPage
-			if userBook.Book.PageCount > 0 && userBook.CurrentPage >= userBook.Book.PageCount {
-				userBook.Status = schemas.StatusRead
-				if userBook.FinishedAt == nil {
-					userBook.FinishedAt = &now
-				}
-			} else {
-				userBook.Status = schemas.StatusReading
-				userBook.FinishedAt = nil
-			}
-		} else {
-			userBook.CurrentPage = 0
-			userBook.FinishedAt = nil
-			userBook.StartedAt = nil
-			if userBook.Status == schemas.StatusRead || userBook.Status == schemas.StatusReading {
-				userBook.Status = schemas.StatusWantToRead
-			}
-		}
-		userBook.UpdatedAt = now
-
-		if err := tx.Save(&userBook).Error; err != nil {
+		if err := recalculateUserBookProgressTx(tx, &userBook, time.Now()); err != nil {
 			return err
 		}
 
