@@ -3,7 +3,9 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/migrations"
@@ -15,8 +17,41 @@ import (
 	_ "github.com/lib/pq"
 )
 
+func getLatestEmbeddedMigrationVersion() int64 {
+	entries, err := fs.ReadDir(migrations.FS, ".")
+	if err != nil {
+		return 0
+	}
+	var latest int64
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".up.sql") {
+			continue
+		}
+		parts := strings.SplitN(entry.Name(), "_", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		if v, err := strconv.ParseInt(parts[0], 10, 64); err == nil && v > latest {
+			latest = v
+		}
+	}
+	return latest
+}
+
 // RunMigrations executa as migrações SQL embutidas diretamente no binário Go
 func RunMigrations(dbDriver string, dbSource string, sqlDB *sql.DB) error {
+	// Fast-path para Postgres serverless: se todas as migrações já estão aplicadas sem dirty state,
+	// evita abrir uma segunda conexão direta e adquirir advisory lock a cada cold start.
+	if dbDriver == "postgres" {
+		if latest := getLatestEmbeddedMigrationVersion(); latest > 0 {
+			var version int64
+			var dirty bool
+			err := sqlDB.QueryRow("SELECT version, dirty FROM schema_migrations LIMIT 1").Scan(&version, &dirty)
+			if err == nil && !dirty && version >= latest {
+				return nil
+			}
+		}
+	}
 	var driverInstance migratedb.Driver
 	var err error
 

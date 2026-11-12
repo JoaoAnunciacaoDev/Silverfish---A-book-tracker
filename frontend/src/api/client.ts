@@ -38,6 +38,16 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
     } catch {
       // Caso a resposta não seja JSON
     }
+    if (
+      response.status === 401 &&
+      typeof window !== 'undefined' &&
+      !endpoint.startsWith('/api/auth/login') &&
+      !endpoint.startsWith('/api/auth/register') &&
+      !endpoint.startsWith('/api/auth/me')
+    ) {
+      window.dispatchEvent(new CustomEvent('silverfish:unauthorized'))
+    }
+
     throw new ApiError(response.status, errorMessage)
   }
 

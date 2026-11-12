@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getSocialFeed,
   getLeaderboard,
@@ -45,11 +46,8 @@ const CURRENT_YEAR = new Date().getFullYear()
 const RANKING_YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
 export function SocialPage() {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'feed' | 'rankings' | 'discover'>('feed')
-
-  // Feed State
-  const [activities, setActivities] = useState<ActivityItem[]>([])
-  const [isFeedLoading, setIsFeedLoading] = useState(false)
 
   // Comments & Likes State
   const [expandedCommentsId, setExpandedCommentsId] = useState<string | null>(null)
@@ -59,16 +57,13 @@ export function SocialPage() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
 
   // Rankings State
-  const [rankings, setRankings] = useState<LeaderboardEntry[]>([])
   const [rankingCriterion, setRankingCriterion] = useState<'pages' | 'books' | 'streak'>('pages')
   const [rankingYear, setRankingYear] = useState<number>(CURRENT_YEAR)
-  const [isRankingsLoading, setIsRankingsLoading] = useState(false)
 
   // Discover / Search State
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [pendingRequests, setPendingRequests] = useState<Array<{ id: string; follower: any; created_at: string }>>([])
 
   // Profile Modal State
   const [selectedUsername, setSelectedUsername] = useState<string | null>(null)
@@ -79,52 +74,39 @@ export function SocialPage() {
     setTimeout(() => setSocialToast(null), 4000)
   }
 
-  // Carrega Feed
-  const loadFeed = useCallback(async () => {
-    setIsFeedLoading(true)
-    try {
-      const data = await getSocialFeed(1, 30)
-      setActivities(data.activities || [])
-    } catch (err) {
-      console.error('Erro ao carregar feed:', err)
-    } finally {
-      setIsFeedLoading(false)
-    }
-  }, [])
+  const feedQueryKey = ['social-feed', 1, 30] as const
+  const feedQuery = useQuery({
+    queryKey: feedQueryKey,
+    queryFn: () => getSocialFeed(1, 30),
+    enabled: activeTab === 'feed',
+  })
 
-  // Carrega Rankings
-  const loadRankings = useCallback(async (criterion: 'pages' | 'books' | 'streak', year?: number) => {
-    setIsRankingsLoading(true)
-    try {
-      const targetYear = year ?? rankingYear
-      const data = await getLeaderboard(criterion, targetYear.toString())
-      setRankings(data.leaderboard || [])
-    } catch (err) {
-      console.error('Erro ao carregar rankings:', err)
-    } finally {
-      setIsRankingsLoading(false)
-    }
-  }, [rankingYear])
+  const rankingsQueryKey = ['social-rankings', rankingCriterion, rankingYear] as const
+  const rankingsQuery = useQuery({
+    queryKey: rankingsQueryKey,
+    queryFn: () => getLeaderboard(rankingCriterion, rankingYear.toString()),
+    enabled: activeTab === 'rankings',
+  })
 
-  // Carrega Solicitações Pendentes
-  const loadPendingRequests = useCallback(async () => {
-    try {
-      const data = await getPendingFollows()
-      setPendingRequests(data.pending_requests || [])
-    } catch (err) {
-      console.error('Erro ao carregar pedidos pendentes:', err)
-    }
-  }, [])
+  const pendingQueryKey = ['pending-follows'] as const
+  const pendingQuery = useQuery({
+    queryKey: pendingQueryKey,
+    queryFn: getPendingFollows,
+    enabled: activeTab === 'discover',
+  })
 
-  useEffect(() => {
-    if (activeTab === 'feed') {
-      loadFeed()
-    } else if (activeTab === 'rankings') {
-      loadRankings(rankingCriterion, rankingYear)
-    } else if (activeTab === 'discover') {
-      loadPendingRequests()
-    }
-  }, [activeTab, rankingCriterion, rankingYear, loadFeed, loadRankings, loadPendingRequests])
+  const activities = feedQuery.data?.activities ?? []
+  const isFeedLoading = feedQuery.isFetching
+  const rankings: LeaderboardEntry[] = rankingsQuery.data?.leaderboard ?? []
+  const isRankingsLoading = rankingsQuery.isFetching
+  const pendingRequests = pendingQuery.data?.pending_requests ?? []
+
+  const updateCachedActivities = (updater: (prev: ActivityItem[]) => ActivityItem[]) => {
+    queryClient.setQueryData<{ activities: ActivityItem[]; page: number; limit: number; total: number }>(
+      feedQueryKey,
+      (prev) => (prev ? { ...prev, activities: updater(prev.activities || []) } : prev)
+    )
+  }
 
   const handleToggleLike = async (activityId: string) => {
     try {
@@ -133,7 +115,7 @@ export function SocialPage() {
         triggerConfetti()
       }
 
-      setActivities((prev) =>
+      updateCachedActivities((prev) =>
         prev.map((act) =>
           act.id === activityId
             ? {
@@ -181,7 +163,7 @@ export function SocialPage() {
       }))
       setCommentInput('')
 
-      setActivities((prev) =>
+      updateCachedActivities((prev) =>
         prev.map((act) =>
           act.id === activityId
             ? { ...act, comments_count: (act.comments_count || 0) + 1 }
@@ -230,7 +212,15 @@ export function SocialPage() {
   const handleRespondRequest = async (followId: string, action: 'accept' | 'reject') => {
     try {
       await respondFollowRequest(followId, action)
-      setPendingRequests((prev) => prev.filter((r) => r.id !== followId))
+      queryClient.setQueryData<{ pending_requests: Array<{ id: string; follower: any; created_at: string }>; total: number }>(
+        pendingQueryKey,
+        (prev) =>
+          prev
+            ? { ...prev, pending_requests: prev.pending_requests.filter((r) => r.id !== followId) }
+            : prev
+      )
+      queryClient.invalidateQueries({ queryKey: ['social-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['social-rankings'] })
       showSocialToast(action === 'accept' ? 'Solicitação aceita!' : 'Solicitação rejeitada')
     } catch (err: any) {
       showSocialToast(err.message || 'Erro ao responder solicitação')
@@ -322,7 +312,7 @@ export function SocialPage() {
               Atividades Recentes
             </h2>
             <button
-              onClick={loadFeed}
+              onClick={() => feedQuery.refetch()}
               disabled={isFeedLoading}
               className="text-xs text-slate-400 hover:text-emerald-400 flex items-center gap-1 transition cursor-pointer"
             >
@@ -919,8 +909,8 @@ export function SocialPage() {
           username={selectedUsername}
           onClose={() => setSelectedUsername(null)}
           onFollowChanged={() => {
-            if (activeTab === 'rankings') loadRankings(rankingCriterion, rankingYear)
-            if (activeTab === 'feed') loadFeed()
+            queryClient.invalidateQueries({ queryKey: ['social-rankings'] })
+            queryClient.invalidateQueries({ queryKey: ['social-feed'] })
           }}
         />
       )}

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { getStreak } from '@/api/goals'
-import type { StreakData } from '@/types/goals'
 import { Flame, Trophy } from 'lucide-react'
 
 interface StreakWidgetProps {
@@ -8,20 +8,16 @@ interface StreakWidgetProps {
 }
 
 export function StreakWidget({ refreshTrigger }: StreakWidgetProps) {
-  const [data, setData] = useState<StreakData | null>(null)
-
-  const fetchStreak = useCallback(async () => {
-    try {
-      const res = await getStreak()
-      setData(res)
-    } catch {
-      // Ignora erro inicial
-    }
-  }, [])
+  const { data, refetch } = useQuery({
+    queryKey: ['streak'],
+    queryFn: getStreak,
+  })
 
   useEffect(() => {
-    fetchStreak()
-  }, [fetchStreak, refreshTrigger])
+    if (refreshTrigger && refreshTrigger > 0) {
+      refetch()
+    }
+  }, [refreshTrigger, refetch])
 
   const currentStreak = data?.current_streak || 0
   const bestStreak = data?.best_streak || 0

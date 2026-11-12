@@ -41,64 +41,85 @@ func GetDashboardStatsHandler(c *gin.Context) {
 	monthStart := currentMonth + "-01"
 	monthEnd := currentMonth + "-31"
 
-	// 1. Livros lidos e lendo
+	// 1. Livros lidos, lendo, na coleção e contagem histórica por ano em 1 consulta enxuta
+	type userBookStatRow struct {
+		Status       string     `gorm:"column:status"`
+		InCollection bool       `gorm:"column:in_collection"`
+		FinishedAt   *time.Time `gorm:"column:finished_at"`
+	}
+	var userBookRows []userBookStatRow
+	db.Model(&schemas.UserBook{}).
+		Select("status, in_collection, finished_at").
+		Where("user_id = ?", user.ID).
+		Find(&userBookRows)
+
 	var totalBooksRead int64
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusRead).Count(&totalBooksRead)
-
 	var totalBooksReading int64
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND status = ?", user.ID, schemas.StatusReading).Count(&totalBooksReading)
-
 	var inCollectionCount int64
-	db.Model(&schemas.UserBook{}).Where("user_id = ? AND in_collection = true", user.ID).Count(&inCollectionCount)
-
-	// Livros lidos no ano atual e contagem histórica por ano
-	var allReadBooks []schemas.UserBook
-	db.Where("user_id = ? AND status = ?", user.ID, schemas.StatusRead).Find(&allReadBooks)
-
 	var booksReadThisYear int64
 	booksByYearMap := make(map[string]int)
-	for _, ub := range allReadBooks {
-		if ub.FinishedAt != nil {
-			y := ub.FinishedAt.Format("2006")
-			booksByYearMap[y]++
-			if y == currentYear {
-				booksReadThisYear++
+
+	for _, ub := range userBookRows {
+		if ub.InCollection {
+			inCollectionCount++
+		}
+		if ub.Status == schemas.StatusReading {
+			totalBooksReading++
+		} else if ub.Status == schemas.StatusRead {
+			totalBooksRead++
+			if ub.FinishedAt != nil {
+				y := ub.FinishedAt.Format("2006")
+				booksByYearMap[y]++
+				if y == currentYear {
+					booksReadThisYear++
+				}
 			}
 		}
 	}
 
-	// 2. Páginas lidas
-	var totalPagesRead int64
-	db.Model(&schemas.ReadingSession{}).Where("user_id = ?", user.ID).Select("COALESCE(SUM(pages_read), 0)").Scan(&totalPagesRead)
+	// 2 & 3. Páginas lidas (total, ano, mês, semana) e dias ativos em 1 query agregada
+	type readingAggregates struct {
+		TotalPages int64 `gorm:"column:total_pages"`
+		YearPages  int64 `gorm:"column:year_pages"`
+		MonthPages int64 `gorm:"column:month_pages"`
+		WeekPages  int64 `gorm:"column:week_pages"`
+		ActiveDays int64 `gorm:"column:active_days"`
+	}
+	var readAgg readingAggregates
+	db.Model(&schemas.ReadingSession{}).
+		Select(`
+			COALESCE(SUM(pages_read), 0) AS total_pages,
+			COALESCE(SUM(CASE WHEN read_at >= ? AND read_at <= ? THEN pages_read ELSE 0 END), 0) AS year_pages,
+			COALESCE(SUM(CASE WHEN read_at >= ? AND read_at <= ? THEN pages_read ELSE 0 END), 0) AS month_pages,
+			COALESCE(SUM(CASE WHEN read_at >= ? THEN pages_read ELSE 0 END), 0) AS week_pages,
+			COUNT(DISTINCT read_at) AS active_days
+		`, yearStart, yearEnd, monthStart, monthEnd, sevenDaysAgo).
+		Where("user_id = ?", user.ID).
+		Scan(&readAgg)
 
-	var yearPagesRead int64
-	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at >= ? AND read_at <= ?", user.ID, yearStart, yearEnd).Select("COALESCE(SUM(pages_read), 0)").Scan(&yearPagesRead)
-
-	var monthPagesRead int64
-	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at >= ? AND read_at <= ?", user.ID, monthStart, monthEnd).Select("COALESCE(SUM(pages_read), 0)").Scan(&monthPagesRead)
-
-	var weekPagesRead int64
-	db.Model(&schemas.ReadingSession{}).Where("user_id = ? AND read_at >= ?", user.ID, sevenDaysAgo).Select("COALESCE(SUM(pages_read), 0)").Scan(&weekPagesRead)
-
-	// 3. Média diária (dias com leitura registrada)
-	var daysWithReading int64
-	db.Model(&schemas.ReadingSession{}).Where("user_id = ?", user.ID).Distinct("read_at").Count(&daysWithReading)
+	totalPagesRead := readAgg.TotalPages
+	yearPagesRead := readAgg.YearPages
+	monthPagesRead := readAgg.MonthPages
+	weekPagesRead := readAgg.WeekPages
+	daysWithReading := readAgg.ActiveDays
 
 	var dailyAverage float64
 	if daysWithReading > 0 {
 		dailyAverage = float64(totalPagesRead) / float64(daysWithReading)
 	}
 
-	// 4. Streaks
+	// 4 & 5. Streaks e taxa de metas batidas em 1 única busca de histórico
 	var historyList []schemas.GoalHistory
-	db.Where("user_id = ?", user.ID).Order("date DESC").Find(&historyList)
+	db.Select("date, met").Where("user_id = ?", user.ID).Order("date DESC").Find(&historyList)
 	currentStreak, bestStreak := calculateStreaks(historyList, today)
 
-	// 5. Taxa de metas batidas
-	var totalGoalDays int64
+	totalGoalDays := int64(len(historyList))
 	var metGoalDays int64
-	db.Model(&schemas.GoalHistory{}).Where("user_id = ?", user.ID).Count(&totalGoalDays)
-	db.Model(&schemas.GoalHistory{}).Where("user_id = ? AND met = true", user.ID).Count(&metGoalDays)
+	for _, h := range historyList {
+		if h.Met {
+			metGoalDays++
+		}
+	}
 
 	var goalCompletionRate float64
 	if totalGoalDays > 0 {

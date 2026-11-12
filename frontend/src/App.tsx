@@ -1,15 +1,9 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClient } from '@/lib/queryClient'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { AuthPage } from '@/features/auth/AuthPage'
-import { BookCatalogPage } from '@/features/books/BookCatalogPage'
 import { LibraryPage } from '@/features/library/LibraryPage'
-import { DashboardPage } from '@/features/dashboard/DashboardPage'
-import { JournalPage } from '@/features/journal/JournalPage'
-import { SocialPage } from '@/features/social/SocialPage'
-import { AdminPage } from '@/features/admin/AdminPage'
-import { PrivacySettingsModal } from '@/features/social/PrivacySettingsModal'
-import { PatchNotesModal } from '@/features/patchNotes/PatchNotesModal'
-import { NotificationSettingsModal } from '@/features/notifications/NotificationSettingsModal'
 import { Footer } from '@/components/layout/Footer'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { NotFoundPage } from '@/components/NotFoundPage'
@@ -24,14 +18,53 @@ import {
   Compass,
   Library,
   LineChart,
+  Loader2,
   LogOut,
+  RefreshCw,
   ScrollText,
   Users,
   Settings,
   ShieldCheck,
   Bell,
   Sparkles,
+  WifiOff,
 } from 'lucide-react'
+
+const BookCatalogPage = lazy(() =>
+  import('@/features/books/BookCatalogPage').then((m) => ({ default: m.BookCatalogPage }))
+)
+const DashboardPage = lazy(() =>
+  import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage }))
+)
+const JournalPage = lazy(() =>
+  import('@/features/journal/JournalPage').then((m) => ({ default: m.JournalPage }))
+)
+const SocialPage = lazy(() =>
+  import('@/features/social/SocialPage').then((m) => ({ default: m.SocialPage }))
+)
+const AdminPage = lazy(() =>
+  import('@/features/admin/AdminPage').then((m) => ({ default: m.AdminPage }))
+)
+const PrivacySettingsModal = lazy(() =>
+  import('@/features/social/PrivacySettingsModal').then((m) => ({ default: m.PrivacySettingsModal }))
+)
+const PatchNotesModal = lazy(() =>
+  import('@/features/patchNotes/PatchNotesModal').then((m) => ({ default: m.PatchNotesModal }))
+)
+const NotificationSettingsModal = lazy(() =>
+  import('@/features/notifications/NotificationSettingsModal').then((m) => ({
+    default: m.NotificationSettingsModal,
+  }))
+)
+
+function TabLoadingFallback() {
+  return (
+    <div className="py-20 flex flex-col items-center justify-center space-y-3 text-slate-400">
+      <Loader2 className="w-7 h-7 animate-spin text-emerald-400" />
+      <p className="text-xs">Carregando seção...</p>
+    </div>
+  )
+}
 
 interface MainLayoutProps {
   route: AppRoute
@@ -39,7 +72,7 @@ interface MainLayoutProps {
 }
 
 function MainLayout({ route, onSelectTab }: MainLayoutProps) {
-  const { user, logout } = useAuth()
+  const { user, logout, isReconnecting, connectionError, refreshUser } = useAuth()
   const currentTab = route.kind === 'tab' ? route.tab : null
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false)
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false)
@@ -191,26 +224,46 @@ function MainLayout({ route, onSelectTab }: MainLayoutProps) {
 
       {/* Conteúdo Principal com padding inferior para a barra mobile */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 pb-24 md:pb-8">
+        {connectionError && (
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-200">
+            <div className="flex items-center space-x-2">
+              <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>{connectionError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => refreshUser()}
+              disabled={isReconnecting}
+              className="inline-flex items-center space-x-1.5 self-start sm:self-auto px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 font-semibold transition cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isReconnecting ? 'animate-spin' : ''}`} />
+              <span>{isReconnecting ? 'Reconectando...' : 'Reconectar'}</span>
+            </button>
+          </div>
+        )}
+
         <ErrorBoundary fallbackTitle="Ocorreu um erro ao carregar esta página">
-          {route.kind === 'not_found' ? (
-            <NotFoundPage
-              path={route.path}
-              isAuthenticated
-              onGoHome={() => onSelectTab('library')}
-            />
-          ) : currentTab === 'library' ? (
-            <LibraryPage onNavigateToCatalog={() => onSelectTab('catalog')} />
-          ) : currentTab === 'journal' ? (
-            <JournalPage />
-          ) : currentTab === 'dashboard' ? (
-            <DashboardPage />
-          ) : currentTab === 'social' ? (
-            <SocialPage />
-          ) : currentTab === 'admin' ? (
-            isSuperUser ? <AdminPage /> : <LibraryPage onNavigateToCatalog={() => onSelectTab('catalog')} />
-          ) : (
-            <BookCatalogPage />
-          )}
+          <Suspense fallback={<TabLoadingFallback />}>
+            {route.kind === 'not_found' ? (
+              <NotFoundPage
+                path={route.path}
+                isAuthenticated
+                onGoHome={() => onSelectTab('library')}
+              />
+            ) : currentTab === 'library' ? (
+              <LibraryPage onNavigateToCatalog={() => onSelectTab('catalog')} />
+            ) : currentTab === 'journal' ? (
+              <JournalPage />
+            ) : currentTab === 'dashboard' ? (
+              <DashboardPage />
+            ) : currentTab === 'social' ? (
+              <SocialPage />
+            ) : currentTab === 'admin' ? (
+              isSuperUser ? <AdminPage /> : <LibraryPage onNavigateToCatalog={() => onSelectTab('catalog')} />
+            ) : (
+              <BookCatalogPage />
+            )}
+          </Suspense>
         </ErrorBoundary>
       </main>
 
@@ -311,23 +364,25 @@ function MainLayout({ route, onSelectTab }: MainLayoutProps) {
       </nav>
 
       {/* Modais da Aplicação */}
-      {isPrivacyModalOpen && (
-        <PrivacySettingsModal onClose={() => setIsPrivacyModalOpen(false)} />
-      )}
+      <Suspense fallback={null}>
+        {isPrivacyModalOpen && (
+          <PrivacySettingsModal onClose={() => setIsPrivacyModalOpen(false)} />
+        )}
 
-      {isPatchNotesOpen && (
-        <PatchNotesModal onClose={() => setIsPatchNotesOpen(false)} />
-      )}
+        {isPatchNotesOpen && (
+          <PatchNotesModal onClose={() => setIsPatchNotesOpen(false)} />
+        )}
 
-      {isNotificationsOpen && (
-        <NotificationSettingsModal onClose={() => setIsNotificationsOpen(false)} />
-      )}
+        {isNotificationsOpen && (
+          <NotificationSettingsModal onClose={() => setIsNotificationsOpen(false)} />
+        )}
+      </Suspense>
     </div>
   )
 }
 
 function Main() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, connectionError, refreshUser, dismissConnectionError } = useAuth()
   const [route, setRoute] = useState<AppRoute>(() =>
     resolveAppRoute(window.location.pathname, window.location.search)
   )
@@ -405,6 +460,43 @@ function Main() {
         </div>
       )
     }
+
+    if (connectionError) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-between p-4">
+          <div className="my-auto max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center space-y-5">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <WifiOff className="w-7 h-7" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-lg font-bold text-white">Servidor demorou para responder</h1>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                O servidor pode estar saindo do modo de espera. Você pode tentar reconectar sua sessão sem precisar fazer login novamente.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2.5 justify-center">
+              <button
+                type="button"
+                onClick={() => refreshUser()}
+                className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-sm transition cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Tentar novamente</span>
+              </button>
+              <button
+                type="button"
+                onClick={dismissConnectionError}
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm border border-slate-700 transition cursor-pointer"
+              >
+                Ir para o login
+              </button>
+            </div>
+          </div>
+          <Footer />
+        </div>
+      )
+    }
+
     return <AuthPage />
   }
 
@@ -413,9 +505,11 @@ function Main() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <Main />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Main />
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }
 

@@ -1,9 +1,13 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { listReadingSessions, deleteReadingSession } from '@/api/reading'
 import { listLibrary } from '@/api/library'
 import type { ReadingSession } from '@/types/reading'
 import type { UserBook } from '@/types/library'
 import { LogSessionModal } from '@/features/reading/LogSessionModal'
+
+const EMPTY_SESSIONS: ReadingSession[] = []
+const EMPTY_LIBRARY_BOOKS: UserBook[] = []
 import {
   BookOpen,
   Calendar,
@@ -36,35 +40,28 @@ const feelingsList = [
 ]
 
 export function JournalPage() {
-  const [sessions, setSessions] = useState<ReadingSession[]>([])
-  const [libraryBooks, setLibraryBooks] = useState<UserBook[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [selectedFeeling, setSelectedFeeling] = useState<string>('Todos')
   const [selectedBookId, setSelectedBookId] = useState<string>('all')
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Carrega sessões e livros da estante
-  const loadData = async () => {
-    try {
-      setIsLoading(true)
-      const [sessionsData, libraryData] = await Promise.all([
-        listReadingSessions({ limit: 100 }),
-        listLibrary({ limit: 100 }),
-      ])
-      setSessions(sessionsData.sessions || [])
-      setLibraryBooks(libraryData.items || [])
-    } catch (err) {
-      console.error('Erro ao carregar diário de leitura:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const sessionsQuery = useQuery({
+    queryKey: ['reading-sessions', { limit: 100 }],
+    queryFn: () => listReadingSessions({ limit: 100 }),
+  })
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  const libraryQuery = useQuery({
+    queryKey: ['library', { limit: 100 }],
+    queryFn: () => listLibrary({ limit: 100 }),
+  })
+
+  const sessions = sessionsQuery.data?.sessions ?? EMPTY_SESSIONS
+  const libraryBooks = libraryQuery.data?.items ?? EMPTY_LIBRARY_BOOKS
+  const isLoading =
+    (sessionsQuery.isPending && !sessionsQuery.data) ||
+    (libraryQuery.isPending && !libraryQuery.data)
 
   // Filtragem local reativa
   const filteredSessions = useMemo(() => {
@@ -92,7 +89,13 @@ export function JournalPage() {
     try {
       setIsDeleting(true)
       await deleteReadingSession(id)
-      setSessions((prev) => prev.filter((s) => s.id !== id))
+      queryClient.setQueryData<{ sessions: ReadingSession[] }>(
+        ['reading-sessions', { limit: 100 }],
+        (prev) => (prev ? { ...prev, sessions: prev.sessions.filter((s) => s.id !== id) } : prev)
+      )
+      queryClient.invalidateQueries({ queryKey: ['reading-sessions'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['heatmap'] })
       setSessionToDelete(null)
     } catch (err) {
       console.error('Erro ao excluir sessão:', err)
@@ -102,7 +105,13 @@ export function JournalPage() {
   }
 
   const handleSessionLogged = () => {
-    loadData()
+    queryClient.invalidateQueries({ queryKey: ['reading-sessions'] })
+    queryClient.invalidateQueries({ queryKey: ['library'] })
+    queryClient.invalidateQueries({ queryKey: ['goal'] })
+    queryClient.invalidateQueries({ queryKey: ['streak'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    queryClient.invalidateQueries({ queryKey: ['heatmap'] })
+    queryClient.invalidateQueries({ queryKey: ['achievements'] })
   }
 
   // Lista de livros disponíveis para nova leitura (prioriza lendo e quer ler)

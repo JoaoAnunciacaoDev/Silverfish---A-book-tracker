@@ -1,9 +1,11 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { getDashboardStats, getHeatmapData } from '@/api/stats'
 import { listAchievements } from '@/api/achievements'
-import type { DashboardStats, DayActivity } from '@/types/stats'
-import type { AchievementView } from '@/types/achievements'
+import type { DayActivity } from '@/types/stats'
 import { AchievementsView } from '@/features/achievements/AchievementsView'
+
+const EMPTY_ACTIVITIES: DayActivity[] = []
 import {
   BookOpen,
   Calendar,
@@ -19,37 +21,32 @@ import {
 } from 'lucide-react'
 
 export function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [activities, setActivities] = useState<DayActivity[]>([])
-  const [achievements, setAchievements] = useState<AchievementView[]>([])
-  const [unlockedCount, setUnlockedCount] = useState(0)
-  const [totalAchievementsCount, setTotalAchievementsCount] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
   const [hoveredDay, setHoveredDay] = useState<{ date: string; pages: number; sessions: number } | null>(null)
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setIsLoading(true)
-        const [statsData, heatmapData, achievementsData] = await Promise.all([
-          getDashboardStats(),
-          getHeatmapData(),
-          listAchievements(),
-        ])
-        setStats(statsData)
-        setActivities(heatmapData.activities || [])
-        setAchievements(achievementsData.achievements || [])
-        setUnlockedCount(achievementsData.unlocked_count || 0)
-        setTotalAchievementsCount(achievementsData.total_count || 0)
-      } catch (err) {
-        console.error('Erro ao carregar dados do dashboard:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const statsQuery = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: getDashboardStats,
+  })
 
-    loadData()
-  }, [])
+  const heatmapQuery = useQuery({
+    queryKey: ['heatmap'],
+    queryFn: getHeatmapData,
+  })
+
+  const achievementsQuery = useQuery({
+    queryKey: ['achievements'],
+    queryFn: listAchievements,
+  })
+
+  const stats = statsQuery.data ?? null
+  const activities = heatmapQuery.data?.activities ?? EMPTY_ACTIVITIES
+  const achievements = achievementsQuery.data?.achievements ?? []
+  const unlockedCount = achievementsQuery.data?.unlocked_count ?? 0
+  const totalAchievementsCount = achievementsQuery.data?.total_count ?? 0
+  const isLoading =
+    (statsQuery.isPending && !statsQuery.data) ||
+    (heatmapQuery.isPending && !heatmapQuery.data) ||
+    (achievementsQuery.isPending && !achievementsQuery.data)
 
   // Mapa de datas (YYYY-MM-DD -> { pages, sessions })
   const activityMap = useMemo(() => {

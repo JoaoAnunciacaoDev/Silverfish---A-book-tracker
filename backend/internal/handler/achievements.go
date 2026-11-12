@@ -213,14 +213,34 @@ var defaultAchievements = []schemas.Achievement{
 	},
 }
 
-// SeedAchievements popula as conquistas padrão se ainda não existirem ou sincroniza se foram editadas
+// SeedAchievements popula as conquistas padrão se ainda não existirem ou sincroniza apenas se foram editadas.
 func SeedAchievements(database *gorm.DB) {
+	var existingList []schemas.Achievement
+	if err := database.Find(&existingList).Error; err != nil {
+		return
+	}
+
+	existingByCode := make(map[string]schemas.Achievement, len(existingList))
+	for _, item := range existingList {
+		existingByCode[item.Code] = item
+	}
+
+	now := time.Now()
+	var toCreate []schemas.Achievement
 	for _, ach := range defaultAchievements {
-		var existing schemas.Achievement
-		if err := database.Where("code = ?", ach.Code).First(&existing).Error; err != nil {
-			ach.CreatedAt = time.Now()
-			_ = database.Create(&ach).Error
-		} else {
+		existing, ok := existingByCode[ach.Code]
+		if !ok {
+			ach.CreatedAt = now
+			toCreate = append(toCreate, ach)
+			continue
+		}
+
+		if existing.Title != ach.Title ||
+			existing.Description != ach.Description ||
+			existing.Icon != ach.Icon ||
+			existing.Category != ach.Category ||
+			existing.Tier != ach.Tier ||
+			existing.TargetValue != ach.TargetValue {
 			_ = database.Model(&existing).Updates(map[string]interface{}{
 				"title":        ach.Title,
 				"description":  ach.Description,
@@ -230,6 +250,10 @@ func SeedAchievements(database *gorm.DB) {
 				"target_value": ach.TargetValue,
 			}).Error
 		}
+	}
+
+	if len(toCreate) > 0 {
+		_ = database.Create(&toCreate).Error
 	}
 }
 

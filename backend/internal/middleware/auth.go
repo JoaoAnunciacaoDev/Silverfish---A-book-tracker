@@ -21,27 +21,32 @@ func RequireAuth() gin.HandlerFunc {
 		db := handler.GetDB()
 		hashedToken := handler.HashSessionToken(token)
 
-		// 1. Busca a sessão no banco
-		var session schemas.Session
-		if err := db.Where("token = ?", hashedToken).First(&session).Error; err != nil {
+		// Consulta única via JOIN entre sessions e users para reduzir round-trips ao banco
+		type sessionWithUser struct {
+			SessionID string    `gorm:"column:session_id"`
+			ExpiresAt time.Time `gorm:"column:expires_at"`
+			schemas.User
+		}
+
+		var row sessionWithUser
+		err = db.Table("sessions").
+			Select("sessions.id AS session_id, sessions.expires_at AS expires_at, users.*").
+			Joins("INNER JOIN users ON users.id = sessions.user_id").
+			Where("sessions.token = ?", hashedToken).
+			Take(&row).Error
+		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Sessão inválida ou não encontrada"})
 			return
 		}
 
-		// 2. Limpeza sob demanda: Se a sessão expirou, deleta do banco na hora e manda pro login!
-		if session.ExpiresAt.Before(time.Now()) {
-			db.Delete(&session)
+		// Limpeza sob demanda: se a sessão expirou, remove e exige novo login
+		if row.ExpiresAt.Before(time.Now()) {
+			db.Where("id = ?", row.SessionID).Delete(&schemas.Session{})
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Sessão expirada. Faça login novamente."})
 			return
 		}
 
-		// 3. Busca o usuário dono da sessão
-		var user schemas.User
-		if err := db.Where("id = ?", session.UserID).First(&user).Error; err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Usuário não encontrado"})
-			return
-		}
-
+		user := row.User
 		c.Set("currentUser", &user)
 		c.Next()
 	}

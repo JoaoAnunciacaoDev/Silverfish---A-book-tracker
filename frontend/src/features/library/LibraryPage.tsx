@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   listLibrary,
   updateLibraryBook,
@@ -6,7 +7,7 @@ import {
   toggleFavorite,
   toggleInCollection,
 } from '@/api/library'
-import type { LibrarySummary, UserBook, UserBookStatus } from '@/types/library'
+import type { LibraryResponse, LibrarySummary, UserBook, UserBookStatus } from '@/types/library'
 import { LibraryBookCard } from './LibraryBookCard'
 import { UpdateProgressModal } from './UpdateProgressModal'
 import { MarkAsReadModal } from './MarkAsReadModal'
@@ -34,21 +35,22 @@ interface LibraryPageProps {
   onNavigateToCatalog: () => void
 }
 
+const EMPTY_SUMMARY: LibrarySummary = {
+  total: 0,
+  reading: 0,
+  want_to_read: 0,
+  read: 0,
+  paused: 0,
+  abandoned: 0,
+  in_collection: 0,
+  favorites: 0,
+}
+
 export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
+  const queryClient = useQueryClient()
   const [activeFilter, setActiveFilter] = useState<'all' | UserBookStatus | 'favorites' | 'in_collection'>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [items, setItems] = useState<UserBook[]>([])
-  const [summary, setSummary] = useState<LibrarySummary>({
-    total: 0,
-    reading: 0,
-    want_to_read: 0,
-    read: 0,
-    paused: 0,
-    abandoned: 0,
-    in_collection: 0,
-    favorites: 0,
-  })
-  const [isLoading, setIsLoading] = useState(false)
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [selectedBookForProgress, setSelectedBookForProgress] = useState<UserBook | null>(null)
   const [selectedBookForSession, setSelectedBookForSession] = useState<UserBook | null>(null)
   const [selectedBookForReview, setSelectedBookForReview] = useState<UserBook | null>(null)
@@ -57,62 +59,83 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   const [goalRefreshKey, setGoalRefreshKey] = useState(0)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  const queryParams = useMemo(() => {
+    const params: { status?: string; favorite?: boolean; in_collection?: boolean; q?: string } = {}
+    if (activeFilter === 'favorites') {
+      params.favorite = true
+    } else if (activeFilter === 'in_collection') {
+      params.in_collection = true
+    } else if (activeFilter !== 'all') {
+      params.status = activeFilter
+    }
+    if (debouncedSearchQuery) {
+      params.q = debouncedSearchQuery
+    }
+    return params
+  }, [activeFilter, debouncedSearchQuery])
+
+  const libraryQueryKey = useMemo(() => ['library', queryParams] as const, [queryParams])
+
+  const { data, isPending } = useQuery({
+    queryKey: libraryQueryKey,
+    queryFn: () => listLibrary(queryParams),
+    placeholderData: keepPreviousData,
+  })
+
+  const items = data?.items ?? []
+  const summary = data?.summary ?? EMPTY_SUMMARY
+  const isLoading = isPending && !data
+
   const showToast = (msg: string) => {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  const fetchLibrary = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setIsLoading(true)
-      }
-      const params: { status?: string; favorite?: boolean; in_collection?: boolean; q?: string } = {}
+  const updateCachedLibrary = (updater: (prev: LibraryResponse) => LibraryResponse) => {
+    queryClient.setQueryData<LibraryResponse>(libraryQueryKey, (prev) =>
+      prev ? updater(prev) : prev
+    )
+  }
 
-      if (activeFilter === 'favorites') {
-        params.favorite = true
-      } else if (activeFilter === 'in_collection') {
-        params.in_collection = true
-      } else if (activeFilter !== 'all') {
-        params.status = activeFilter
-      }
-
-      if (searchQuery.trim()) {
-        params.q = searchQuery.trim()
-      }
-
-      const res = await listLibrary(params)
-      setItems(res.items)
-      setSummary(res.summary)
-    } catch {
-      // Ignora erro
-    } finally {
-      if (!silent) {
-        setIsLoading(false)
-      }
+  const invalidateLibraryAndStats = (includeReadingStats = false) => {
+    queryClient.invalidateQueries({ queryKey: ['library'] })
+    if (includeReadingStats) {
+      queryClient.invalidateQueries({ queryKey: ['goal'] })
+      queryClient.invalidateQueries({ queryKey: ['streak'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['heatmap'] })
+      queryClient.invalidateQueries({ queryKey: ['reading-sessions'] })
+      queryClient.invalidateQueries({ queryKey: ['achievements'] })
     }
-  }, [activeFilter, searchQuery])
-
-  useEffect(() => {
-    fetchLibrary()
-  }, [fetchLibrary])
+  }
 
   // Ações da Estante
   const handleUpdateProgress = async (id: string, newPage: number) => {
     const res = await updateLibraryBook(id, { current_page: newPage })
-    setItems((prev) => prev.map((item) => (item.id === id ? res.item : item)))
+    updateCachedLibrary((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => (item.id === id ? res.item : item)),
+    }))
     showToast(`Progresso de "${res.item.book.title}" atualizado para página ${newPage}`)
     setGoalRefreshKey((k) => k + 1)
-    fetchLibrary(true)
+    invalidateLibraryAndStats(true)
   }
 
   const handleSessionLogged = (session: { user_book: UserBook; pages_read: number }) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === session.user_book.id ? session.user_book : i))
-    )
+    updateCachedLibrary((prev) => ({
+      ...prev,
+      items: prev.items.map((i) => (i.id === session.user_book.id ? session.user_book : i)),
+    }))
     showToast(`Sessão registrada: +${session.pages_read} páginas lidas`)
     setGoalRefreshKey((k) => k + 1)
-    fetchLibrary(true)
+    invalidateLibraryAndStats(true)
   }
 
   const handleChangeStatus = async (item: UserBook, newStatus: UserBookStatus) => {
@@ -123,9 +146,12 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
 
     try {
       const res = await updateLibraryBook(item.id, { status: newStatus })
-      setItems((prev) => prev.map((i) => (i.id === item.id ? res.item : i)))
+      updateCachedLibrary((prev) => ({
+        ...prev,
+        items: prev.items.map((i) => (i.id === item.id ? res.item : i)),
+      }))
       showToast(`"${item.book.title}" movido para nova categoria`)
-      fetchLibrary(true)
+      invalidateLibraryAndStats(true)
     } catch {
       showToast('Erro ao atualizar status do livro')
     }
@@ -136,23 +162,27 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
       status: 'read',
       finished_at: finishedAt,
     })
-    setItems((prev) => prev.map((i) => (i.id === id ? res.item : i)))
-    fetchLibrary(true)
+    updateCachedLibrary((prev) => ({
+      ...prev,
+      items: prev.items.map((i) => (i.id === id ? res.item : i)),
+    }))
+    invalidateLibraryAndStats(true)
     return res.item
   }
 
   const handleToggleFavorite = async (id: string) => {
     try {
       const res = await toggleFavorite(id)
-      setItems((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, favorite: res.favorite } : i))
-      )
-      setSummary((prev) => ({
+      updateCachedLibrary((prev) => ({
         ...prev,
-        favorites: res.favorite ? prev.favorites + 1 : Math.max(0, prev.favorites - 1),
+        items: prev.items.map((i) => (i.id === id ? { ...i, favorite: res.favorite } : i)),
+        summary: {
+          ...prev.summary,
+          favorites: res.favorite ? prev.summary.favorites + 1 : Math.max(0, prev.summary.favorites - 1),
+        },
       }))
       showToast(res.favorite ? 'Adicionado aos favoritos' : 'Removido dos favoritos')
-      fetchLibrary(true)
+      invalidateLibraryAndStats(false)
     } catch {
       showToast('Erro ao alternar favorito')
     }
@@ -161,15 +191,18 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   const handleToggleInCollection = async (id: string) => {
     try {
       const res = await toggleInCollection(id)
-      setItems((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, in_collection: res.in_collection } : i))
-      )
-      setSummary((prev) => ({
+      updateCachedLibrary((prev) => ({
         ...prev,
-        in_collection: res.in_collection ? prev.in_collection + 1 : Math.max(0, prev.in_collection - 1),
+        items: prev.items.map((i) => (i.id === id ? { ...i, in_collection: res.in_collection } : i)),
+        summary: {
+          ...prev.summary,
+          in_collection: res.in_collection
+            ? prev.summary.in_collection + 1
+            : Math.max(0, prev.summary.in_collection - 1),
+        },
       }))
       showToast(res.in_collection ? 'Adicionado à sua coleção' : 'Removido da sua coleção')
-      fetchLibrary(true)
+      invalidateLibraryAndStats(false)
     } catch {
       showToast('Erro ao atualizar coleção')
     }
@@ -178,9 +211,12 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
   const handleRemove = async (id: string) => {
     try {
       await deleteLibraryBook(id)
-      setItems((prev) => prev.filter((i) => i.id !== id))
+      updateCachedLibrary((prev) => ({
+        ...prev,
+        items: prev.items.filter((i) => i.id !== id),
+      }))
       showToast('Livro removido da sua estante.')
-      fetchLibrary(true)
+      invalidateLibraryAndStats(true)
     } catch {
       showToast('Erro ao remover livro da estante')
     }
@@ -397,7 +433,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
         onClose={() => setSelectedBookForReadDate(null)}
         onSuccess={(updated) => {
           showToast(`"${updated.book.title}" atualizado com sucesso!`)
-          fetchLibrary()
+          invalidateLibraryAndStats(true)
         }}
         onSaveDate={handleSaveReadDate}
       />
@@ -430,7 +466,7 @@ export function LibraryPage({ onNavigateToCatalog }: LibraryPageProps) {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         onSessionDeleted={() => {
-          fetchLibrary()
+          invalidateLibraryAndStats(true)
           setGoalRefreshKey((k) => k + 1)
         }}
       />

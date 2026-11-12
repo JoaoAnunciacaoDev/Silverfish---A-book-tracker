@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getGoal } from '@/api/goals'
-import type { GoalData } from '@/types/goals'
 import { SetGoalModal } from './SetGoalModal'
 import { CheckCircle2, Edit2, Target } from 'lucide-react'
 
@@ -9,21 +9,19 @@ interface DailyGoalWidgetProps {
 }
 
 export function DailyGoalWidget({ refreshTrigger }: DailyGoalWidgetProps) {
-  const [data, setData] = useState<GoalData | null>(null)
+  const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const fetchGoal = useCallback(async () => {
-    try {
-      const res = await getGoal()
-      setData(res)
-    } catch {
-      // Ignora erro inicial
-    }
-  }, [])
+  const { data, refetch } = useQuery({
+    queryKey: ['goal'],
+    queryFn: getGoal,
+  })
 
   useEffect(() => {
-    fetchGoal()
-  }, [fetchGoal, refreshTrigger])
+    if (refreshTrigger && refreshTrigger > 0) {
+      refetch()
+    }
+  }, [refreshTrigger, refetch])
 
   const target = data?.daily_page_target || 20
   const pagesRead = data?.today.pages_read || 0
@@ -82,7 +80,10 @@ export function DailyGoalWidget({ refreshTrigger }: DailyGoalWidgetProps) {
         currentTarget={target}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => fetchGoal()}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['goal'] })
+          queryClient.invalidateQueries({ queryKey: ['streak'] })
+        }}
       />
     </>
   )

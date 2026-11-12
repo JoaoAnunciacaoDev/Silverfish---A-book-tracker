@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/config"
 	"github.com/JoaoAnunciacaoDev/Silverfish---A-book-tracker/backend/internal/schemas"
@@ -13,11 +14,18 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// SanitizePostgresURL limpa parâmetros conflitantes gerados automaticamente por provedores como o Neon
-func SanitizePostgresURL(rawURL string) string {
+// SanitizePostgresPoolerURL remove apenas parâmetros incompatíveis com drivers legados,
+// preservando o endpoint -pooler do Neon para uso em runtime serverless.
+func SanitizePostgresPoolerURL(rawURL string) string {
 	cleaned := strings.ReplaceAll(rawURL, "&channel_binding=require", "")
 	cleaned = strings.ReplaceAll(cleaned, "channel_binding=require&", "")
 	cleaned = strings.ReplaceAll(cleaned, "?channel_binding=require", "?")
+	return strings.TrimRight(cleaned, "?&")
+}
+
+// SanitizePostgresURL limpa parâmetros conflitantes e remove "-pooler." para conexões diretas (ex: migrações).
+func SanitizePostgresURL(rawURL string) string {
+	cleaned := SanitizePostgresPoolerURL(rawURL)
 	cleaned = strings.ReplaceAll(cleaned, "-pooler.", ".")
 	return strings.TrimRight(cleaned, "?&")
 }
@@ -56,10 +64,6 @@ func SyncSchemas(db *gorm.DB) error {
 				log.Printf("[AutoMigrate] aviso ao sincronizar %T: %v", m, err)
 			}
 		}
-	} else {
-		// Garante que novas colunas existam no Postgres imediatamente sem atrasar o boot
-		_ = db.Exec("ALTER TABLE user_books ADD COLUMN IF NOT EXISTS in_collection BOOLEAN NOT NULL DEFAULT FALSE").Error
-		_ = db.Exec("ALTER TABLE notification_settings ADD COLUMN IF NOT EXISTS last_reminder_date TEXT NOT NULL DEFAULT ''").Error
 	}
 
 	return nil
@@ -73,8 +77,12 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 	case "sqlite":
 		dialector = sqlite.Open(cfg.DBSource)
 	case "postgres":
-		cleanSource := SanitizePostgresURL(cfg.DBSource)
-		dialector = postgres.Open(cleanSource)
+		// Preserva -pooler. e desabilita prepared statements para compatibilidade com PgBouncer/Neon pooler
+		poolerSource := SanitizePostgresPoolerURL(cfg.DBSource)
+		dialector = postgres.New(postgres.Config{
+			DSN:                  poolerSource,
+			PreferSimpleProtocol: true,
+		})
 	default:
 		return nil, fmt.Errorf("driver de banco de dados não suportado: %s", cfg.DBDriver)
 	}
@@ -96,6 +104,11 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		if err := db.Exec("PRAGMA foreign_keys = ON;").Error; err != nil {
 			return nil, fmt.Errorf("falha ao habilitar foreign keys no sqlite: %w", err)
 		}
+	} else if sqlDB, sqlErr := db.DB(); sqlErr == nil {
+		// Ajusta pool para ambiente serverless (conexões curtas via pooler)
+		sqlDB.SetMaxIdleConns(2)
+		sqlDB.SetMaxOpenConns(5)
+		sqlDB.SetConnMaxLifetime(3 * time.Minute)
 	}
 
 	log.Printf("Conectado ao banco de dados com sucesso (%s)", cfg.DBDriver)
