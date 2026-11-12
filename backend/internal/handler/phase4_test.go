@@ -110,3 +110,13 @@ func TestSubscribePushRequest_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestNewTestNotificationPayload_UsesValidTargetURL(t *testing.T) {
+	payload := handler.NewTestNotificationPayload("Maria")
+	if payload.URL != "/?tab=library" {
+		t.Errorf("URL esperada = %q, obtida = %q", "/?tab=library", payload.URL)
+	}
+	if payload.URL != handler.DefaultNotificationURL {
+		t.Errorf("URL = %q deve coincidir com DefaultNotificationURL = %q", payload.URL, handler.DefaultNotificationURL)
+	}
+}

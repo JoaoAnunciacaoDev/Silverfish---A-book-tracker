@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { AuthPage } from '@/features/auth/AuthPage'
 import { BookCatalogPage } from '@/features/books/BookCatalogPage'
@@ -12,6 +12,13 @@ import { PatchNotesModal } from '@/features/patchNotes/PatchNotesModal'
 import { NotificationSettingsModal } from '@/features/notifications/NotificationSettingsModal'
 import { Footer } from '@/components/layout/Footer'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { NotFoundPage } from '@/components/NotFoundPage'
+import {
+  buildTabUrl,
+  resolveAppRoute,
+  type AppRoute,
+  type AppTab,
+} from '@/utils/routing'
 import {
   BookOpen,
   Compass,
@@ -26,9 +33,14 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-function MainLayout() {
+interface MainLayoutProps {
+  route: AppRoute
+  onSelectTab: (tab: AppTab) => void
+}
+
+function MainLayout({ route, onSelectTab }: MainLayoutProps) {
   const { user, logout } = useAuth()
-  const [currentTab, setCurrentTab] = useState<'library' | 'journal' | 'dashboard' | 'catalog' | 'social' | 'admin'>('library')
+  const currentTab = route.kind === 'tab' ? route.tab : null
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false)
   const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -43,7 +55,7 @@ function MainLayout() {
           <div className="flex items-center space-x-6">
             <div
               className="flex items-center space-x-3 cursor-pointer"
-              onClick={() => setCurrentTab('library')}
+              onClick={() => onSelectTab('library')}
             >
               <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
                 <BookOpen className="w-6 h-6" />
@@ -56,7 +68,7 @@ function MainLayout() {
             {/* Navegação desktop */}
             <nav className="hidden md:flex items-center space-x-1">
               <button
-                onClick={() => setCurrentTab('library')}
+                onClick={() => onSelectTab('library')}
                 className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   currentTab === 'library'
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
@@ -68,7 +80,7 @@ function MainLayout() {
               </button>
 
               <button
-                onClick={() => setCurrentTab('journal')}
+                onClick={() => onSelectTab('journal')}
                 className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   currentTab === 'journal'
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
@@ -80,7 +92,7 @@ function MainLayout() {
               </button>
 
               <button
-                onClick={() => setCurrentTab('dashboard')}
+                onClick={() => onSelectTab('dashboard')}
                 className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   currentTab === 'dashboard'
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
@@ -92,7 +104,7 @@ function MainLayout() {
               </button>
 
               <button
-                onClick={() => setCurrentTab('social')}
+                onClick={() => onSelectTab('social')}
                 className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   currentTab === 'social'
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
@@ -104,7 +116,7 @@ function MainLayout() {
               </button>
 
               <button
-                onClick={() => setCurrentTab('catalog')}
+                onClick={() => onSelectTab('catalog')}
                 className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   currentTab === 'catalog'
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
@@ -118,7 +130,7 @@ function MainLayout() {
               {/* Botão de Painel Admin exclusivo para SUPERUSER */}
               {isSuperUser && (
                 <button
-                  onClick={() => setCurrentTab('admin')}
+                  onClick={() => onSelectTab('admin')}
                   className={`inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                     currentTab === 'admin'
                       ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
@@ -180,8 +192,14 @@ function MainLayout() {
       {/* Conteúdo Principal com padding inferior para a barra mobile */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 pb-24 md:pb-8">
         <ErrorBoundary fallbackTitle="Ocorreu um erro ao carregar esta página">
-          {currentTab === 'library' ? (
-            <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
+          {route.kind === 'not_found' ? (
+            <NotFoundPage
+              path={route.path}
+              isAuthenticated
+              onGoHome={() => onSelectTab('library')}
+            />
+          ) : currentTab === 'library' ? (
+            <LibraryPage onNavigateToCatalog={() => onSelectTab('catalog')} />
           ) : currentTab === 'journal' ? (
             <JournalPage />
           ) : currentTab === 'dashboard' ? (
@@ -189,7 +207,7 @@ function MainLayout() {
           ) : currentTab === 'social' ? (
             <SocialPage />
           ) : currentTab === 'admin' ? (
-            isSuperUser ? <AdminPage /> : <LibraryPage onNavigateToCatalog={() => setCurrentTab('catalog')} />
+            isSuperUser ? <AdminPage /> : <LibraryPage onNavigateToCatalog={() => onSelectTab('catalog')} />
           ) : (
             <BookCatalogPage />
           )}
@@ -204,7 +222,7 @@ function MainLayout() {
       {/* Barra de Navegação Inferior para Mobile (estilo App / PWA) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 py-2 px-1 flex items-center justify-around shadow-2xl">
         <button
-          onClick={() => setCurrentTab('library')}
+          onClick={() => onSelectTab('library')}
           aria-label="Minha Estante de Livros"
           title="Minha Estante"
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
@@ -218,7 +236,7 @@ function MainLayout() {
         </button>
 
         <button
-          onClick={() => setCurrentTab('journal')}
+          onClick={() => onSelectTab('journal')}
           aria-label="Diário de Leitura"
           title="Diário"
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
@@ -232,7 +250,7 @@ function MainLayout() {
         </button>
 
         <button
-          onClick={() => setCurrentTab('dashboard')}
+          onClick={() => onSelectTab('dashboard')}
           aria-label="Painel de Estatísticas e Metas"
           title="Painel"
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
@@ -246,7 +264,7 @@ function MainLayout() {
         </button>
 
         <button
-          onClick={() => setCurrentTab('social')}
+          onClick={() => onSelectTab('social')}
           aria-label="Comunidade de Leitores"
           title="Social"
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
@@ -261,7 +279,7 @@ function MainLayout() {
 
         {/* Aba Buscar Livros (sempre visível para todos os usuários) */}
         <button
-          onClick={() => setCurrentTab('catalog')}
+          onClick={() => onSelectTab('catalog')}
           aria-label="Buscar e Descobrir Livros"
           title="Buscar"
           className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
@@ -277,7 +295,7 @@ function MainLayout() {
         {/* Atalho Admin exclusivo para SUPERUSER (sem ocultar a busca) */}
         {isSuperUser && (
           <button
-            onClick={() => setCurrentTab('admin')}
+            onClick={() => onSelectTab('admin')}
             aria-label="Painel de Administração"
             title="Admin"
             className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2 rounded-2xl transition cursor-pointer ${
@@ -310,6 +328,48 @@ function MainLayout() {
 
 function Main() {
   const { isAuthenticated, isLoading } = useAuth()
+  const [route, setRoute] = useState<AppRoute>(() =>
+    resolveAppRoute(window.location.pathname, window.location.search)
+  )
+
+  useEffect(() => {
+    const syncFromLocation = () => {
+      setRoute(resolveAppRoute(window.location.pathname, window.location.search))
+    }
+
+    window.addEventListener('popstate', syncFromLocation)
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SILVERFISH_NAVIGATE' && typeof event.data.url === 'string') {
+        const parsed = new URL(event.data.url, window.location.origin)
+        window.history.pushState({}, '', parsed.pathname + parsed.search)
+        setRoute(resolveAppRoute(parsed.pathname, parsed.search))
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage)
+      navigator.serviceWorker
+        .getRegistration('/sw.js')
+        .then((reg) => reg?.update().catch(() => {}))
+        .catch(() => {})
+    }
+
+    return () => {
+      window.removeEventListener('popstate', syncFromLocation)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage)
+      }
+    }
+  }, [])
+
+  const handleSelectTab = (tab: AppTab) => {
+    const targetUrl = buildTabUrl(tab)
+    if (window.location.pathname + window.location.search !== targetUrl) {
+      window.history.pushState({}, '', targetUrl)
+    }
+    setRoute({ kind: 'tab', tab })
+  }
 
   if (isLoading) {
     return (
@@ -330,7 +390,25 @@ function Main() {
     )
   }
 
-  return isAuthenticated ? <MainLayout /> : <AuthPage />
+  if (!isAuthenticated) {
+    if (route.kind === 'not_found') {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between">
+          <div className="my-auto">
+            <NotFoundPage
+              path={route.path}
+              isAuthenticated={false}
+              onGoHome={() => handleSelectTab('library')}
+            />
+          </div>
+          <Footer />
+        </div>
+      )
+    }
+    return <AuthPage />
+  }
+
+  return <MainLayout route={route} onSelectTab={handleSelectTab} />
 }
 
 export function App() {

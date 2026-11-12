@@ -1,6 +1,7 @@
 // Service Worker do Silverfish — PWA & Web Push
 
-const CACHE_NAME = 'silverfish-cache-v1'
+const CACHE_NAME = 'silverfish-cache-v2'
+const DEFAULT_NOTIFICATION_URL = '/?tab=library'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -49,7 +50,13 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse
         })
-        .catch(() => cachedResponse)
+        .catch(() => {
+          if (cachedResponse) return cachedResponse
+          if (event.request.mode === 'navigate') {
+            return caches.match('/')
+          }
+          return undefined
+        })
 
       return cachedResponse || fetchPromise
     })
@@ -62,7 +69,7 @@ self.addEventListener('push', (event) => {
     title: 'Silverfish 📖',
     body: 'Hora de ler! Não perca o progresso da sua ofensiva.',
     icon: '/favicon.svg',
-    url: '/',
+    url: DEFAULT_NOTIFICATION_URL,
   }
 
   if (event.data) {
@@ -77,7 +84,7 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: data.icon || '/favicon.svg',
     badge: '/favicon.svg',
-    data: { url: data.url || '/' },
+    data: { url: data.url || DEFAULT_NOTIFICATION_URL },
     vibrate: [100, 50, 100],
   }
 
@@ -87,18 +94,27 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const targetUrl = event.notification.data?.url || '/'
+  const rawUrl = event.notification.data?.url || DEFAULT_NOTIFICATION_URL
+  const targetUrl = new URL(rawUrl, self.location.origin).href
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
-        if (client.url && 'focus' in client) {
-          return client.focus()
+        if (client.url && client.url.startsWith(self.location.origin) && 'focus' in client) {
+          await client.focus()
+          const clientPath = new URL(client.url).pathname
+          if (clientPath === '/' || clientPath === '/index.html') {
+            client.postMessage({ type: 'SILVERFISH_NAVIGATE', url: rawUrl })
+          } else if ('navigate' in client) {
+            await client.navigate(targetUrl).catch(() => {})
+          }
+          return client
         }
       }
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl)
       }
+      return undefined
     })
   )
 })

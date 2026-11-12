@@ -42,12 +42,25 @@ func getVapidSubject() string {
 	return sub
 }
 
+const DefaultNotificationURL = "/?tab=library"
+
 type WebPushPayload struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
 	Icon  string `json:"icon,omitempty"`
 	Badge string `json:"badge,omitempty"`
 	URL   string `json:"url,omitempty"`
+}
+
+// NewTestNotificationPayload constrói o payload da notificação push de teste.
+func NewTestNotificationPayload(displayName string) WebPushPayload {
+	return WebPushPayload{
+		Title: "Silverfish 📖",
+		Body:  "Olá, " + displayName + "! Suas notificações push estão funcionando perfeitamente.",
+		Icon:  "/favicon.svg",
+		Badge: "/favicon.svg",
+		URL:   DefaultNotificationURL,
+	}
 }
 
 func sendWebPush(sub schemas.PushSubscription, payload WebPushPayload) error {
@@ -304,13 +317,7 @@ func SendTestNotificationHandler(c *gin.Context) {
 		return
 	}
 
-	payload := WebPushPayload{
-		Title: "Silverfish 📖",
-		Body:  "Olá, " + user.DisplayName + "! Suas notificações push estão funcionando perfeitamente.",
-		Icon:  "/favicon.svg",
-		Badge: "/favicon.svg",
-		URL:   "/app/library",
-	}
+	payload := NewTestNotificationPayload(user.DisplayName)
 
 	sentCount := 0
 	var lastErr error
@@ -448,7 +455,7 @@ func CronRemindersHandler(c *gin.Context) {
 			Body:  body,
 			Icon:  "/favicon.svg",
 			Badge: "/favicon.svg",
-			URL:   "/app/library",
+			URL:   DefaultNotificationURL,
 		}
 
 		userSent := false
