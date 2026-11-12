@@ -9,6 +9,7 @@ import { formatSessionDate } from '@/utils/date'
 
 const EMPTY_SESSIONS: ReadingSession[] = []
 const EMPTY_LIBRARY_BOOKS: UserBook[] = []
+const NOTES_PREVIEW_LIMIT = 100
 import {
   BookOpen,
   Calendar,
@@ -48,6 +49,11 @@ export function JournalPage() {
   const [sessionToEdit, setSessionToEdit] = useState<ReadingSession | null>(null)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [expandedNotesIds, setExpandedNotesIds] = useState<Record<string, boolean>>({})
+
+  const toggleNotesExpanded = (sessionId: string) => {
+    setExpandedNotesIds((prev) => ({ ...prev, [sessionId]: !prev[sessionId] }))
+  }
 
   const sessionsQuery = useQuery({
     queryKey: ['reading-sessions', { limit: 100 }],
@@ -360,17 +366,35 @@ export function JournalPage() {
                   )}
 
                   {/* Anotações de leitura */}
-                  {session.notes && (
-                    <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
-                      <div className="flex items-center space-x-1.5 text-[11px] font-semibold text-emerald-400/90">
-                        <NotebookPen className="w-3.5 h-3.5 shrink-0" />
-                        <span>Anotações de leitura</span>
+                  {session.notes && (() => {
+                    const isLongNotes = session.notes.length > NOTES_PREVIEW_LIMIT
+                    const isNotesExpanded = Boolean(expandedNotesIds[session.id])
+                    const displayedNotes =
+                      isLongNotes && !isNotesExpanded
+                        ? `${session.notes.slice(0, NOTES_PREVIEW_LIMIT).trimEnd()}...`
+                        : session.notes
+
+                    return (
+                      <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
+                        <div className="flex items-center space-x-1.5 text-[11px] font-semibold text-emerald-400/90">
+                          <NotebookPen className="w-3.5 h-3.5 shrink-0" />
+                          <span>Anotações de leitura</span>
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+                          {displayedNotes}
+                        </p>
+                        {isLongNotes && (
+                          <button
+                            type="button"
+                            onClick={() => toggleNotesExpanded(session.id)}
+                            className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                          >
+                            {isNotesExpanded ? 'Mostrar menos' : 'Ler mais'}
+                          </button>
+                        )}
                       </div>
-                      <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
-                        {session.notes}
-                      </p>
-                    </div>
-                  )}
+                    )
+                  })()}
                 </div>
               </div>
             )
