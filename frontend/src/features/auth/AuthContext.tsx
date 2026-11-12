@@ -15,7 +15,8 @@ function readCachedUser(): User | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<User>
     if (parsed && typeof parsed.id === 'string' && typeof parsed.username === 'string') {
-      return parsed as User
+      const { email: _legacyEmail, ...safeUser } = parsed
+      return { ...safeUser, email: '' } as User
     }
     return null
   } catch {
@@ -27,7 +28,8 @@ function writeCachedUser(user: User | null): void {
   if (typeof window === 'undefined') return
   try {
     if (user) {
-      window.localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user))
+      const { email: _email, ...safeUser } = user
+      window.localStorage.setItem(CACHED_USER_KEY, JSON.stringify(safeUser))
     } else {
       window.localStorage.removeItem(CACHED_USER_KEY)
     }

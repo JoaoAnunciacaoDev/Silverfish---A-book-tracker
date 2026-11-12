@@ -56,9 +56,9 @@ export function UpdateProgressModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs">
+      <div className="relative w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="shrink-0 flex items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-800">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
               <Bookmark className="w-5 h-5" />
@@ -66,6 +66,7 @@ export function UpdateProgressModal({
             <h3 className="text-base font-bold text-white">Atualizar Progresso</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
           >
@@ -73,62 +74,64 @@ export function UpdateProgressModal({
           </button>
         </div>
 
-        <div className="space-y-1">
-          <h4 className="font-semibold text-white text-sm line-clamp-1">{item.book.title}</h4>
-          <p className="text-xs text-slate-400">{item.book.author}</p>
-        </div>
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5">
+            <div className="space-y-1">
+              <h4 className="font-semibold text-white text-sm line-clamp-1">{item.book.title}</h4>
+              <p className="text-xs text-slate-400">{item.book.author}</p>
+            </div>
 
-        {error && (
-          <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl">
-            {error}
+            {error && (
+              <div className="p-3 text-xs bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Página Atual</span>
+                <span className="font-semibold text-emerald-400">
+                  {page} de {totalPages} págs ({percentage}%)
+                </span>
+              </div>
+
+              {/* Barra de progresso visual */}
+              <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${percentage}%` }}
+                />
+              </div>
+
+              <div className="flex items-center space-x-3 pt-2">
+                <input
+                  type="number"
+                  min="0"
+                  max={totalPages}
+                  value={page}
+                  onChange={(e) => setPage(Math.min(totalPages, Math.max(0, parseInt(e.target.value) || 0)))}
+                  className="w-28 px-3 py-2 bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl text-center text-sm font-bold text-white focus:outline-hidden transition"
+                />
+                <input
+                  type="range"
+                  min="0"
+                  max={totalPages}
+                  value={page}
+                  onChange={(e) => setPage(parseInt(e.target.value) || 0)}
+                  className="flex-1 accent-emerald-500 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {isFinished && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center space-x-2.5 text-xs text-emerald-400">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Parabéns! Ao atingir a última página, o livro será marcado como <strong>Lido</strong> automaticamente!</span>
+              </div>
+            )}
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Página Atual</span>
-              <span className="font-semibold text-emerald-400">
-                {page} de {totalPages} págs ({percentage}%)
-              </span>
-            </div>
-
-            {/* Barra de progresso visual */}
-            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-
-            <div className="flex items-center space-x-3 pt-2">
-              <input
-                type="number"
-                min="0"
-                max={totalPages}
-                value={page}
-                onChange={(e) => setPage(Math.min(totalPages, Math.max(0, parseInt(e.target.value) || 0)))}
-                className="w-28 px-3 py-2 bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl text-center text-sm font-bold text-white focus:outline-hidden transition"
-              />
-              <input
-                type="range"
-                min="0"
-                max={totalPages}
-                value={page}
-                onChange={(e) => setPage(parseInt(e.target.value) || 0)}
-                className="flex-1 accent-emerald-500 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {isFinished && (
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center space-x-2.5 text-xs text-emerald-400">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Parabéns! Ao atingir a última página, o livro será marcado como <strong>Lido</strong> automaticamente!</span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+          <div className="shrink-0 flex items-center justify-end space-x-3 px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-800 bg-slate-900/95">
             <button
               type="button"
               onClick={onClose}

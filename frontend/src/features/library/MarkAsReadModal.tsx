@@ -84,57 +84,58 @@ export function MarkAsReadModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs">
+      <div className="relative w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+        <div className="shrink-0 flex items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4 border-b border-slate-800">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20 shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-base font-bold text-white">Quando você leu este livro?</h3>
               <p className="text-xs text-slate-400">Registre a data para acompanhar seu histórico por ano</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Livro Info */}
-        <div className="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
-          <div className="w-12 h-16 bg-slate-800 rounded-lg overflow-hidden shrink-0 border border-slate-700/40">
-            {userBook.book.cover_url ? (
-              <img
-                src={userBook.book.cover_url}
-                alt={userBook.book.title}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-600">
-                <BookOpen className="w-5 h-5" />
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
+            {/* Livro Info */}
+            <div className="flex items-center space-x-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
+              <div className="w-12 h-16 bg-slate-800 rounded-lg overflow-hidden shrink-0 border border-slate-700/40">
+                {userBook.book.cover_url ? (
+                  <img
+                    src={userBook.book.cover_url}
+                    alt={userBook.book.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-600">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-semibold text-white truncate">{userBook.book.title}</h4>
+                <p className="text-xs text-slate-400 truncate">{userBook.book.author}</p>
+                <span className="text-[11px] text-slate-500 mt-0.5 block">{userBook.book.page_count} páginas</span>
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
               </div>
             )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-white truncate">{userBook.book.title}</h4>
-            <p className="text-xs text-slate-400 truncate">{userBook.book.author}</p>
-            <span className="text-[11px] text-slate-500 mt-0.5 block">{userBook.book.page_count} páginas</span>
-          </div>
-        </div>
-
-        {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-300">Escolha como deseja registrar:</label>
             <div className="grid grid-cols-4 gap-1.5">
@@ -226,7 +227,9 @@ export function MarkAsReadModal({
             </p>
           )}
 
-          <div className="flex items-center space-x-3 pt-2">
+          </div>
+
+          <div className="shrink-0 flex items-center space-x-3 px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-800 bg-slate-900/95">
             <button
               type="button"
               onClick={onClose}

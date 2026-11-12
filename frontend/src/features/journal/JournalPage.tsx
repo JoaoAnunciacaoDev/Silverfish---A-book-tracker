@@ -367,8 +367,8 @@ export function JournalPage() {
 
       {/* Modal para Confirmar Exclusão */}
       {sessionToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs">
+          <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
             <h3 className="text-base font-bold text-white">Excluir Registro de Leitura</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Tem certeza que deseja apagar esta sessão de leitura? As páginas lidas não serão recalculadas no livro da estante.

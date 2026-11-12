@@ -234,30 +234,32 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-lg max-h-[90dvh] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/60">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+        <div className="shrink-0 flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-slate-900/60">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20 shrink-0">
               <Bell className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-base font-bold text-white">Lembretes & Notificações</h3>
               <p className="text-xs text-slate-400">Configure seus horários de leitura e alertas</p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-full transition cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-full transition cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Formulário */}
-        <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto max-h-[80vh]">
+        <form onSubmit={handleSave} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-5">
           {/* Card de Ativação do Dispositivo */}
           <div className="p-4 bg-slate-800/40 border border-slate-800 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
@@ -378,21 +380,22 @@ export function NotificationSettingsModal({ onClose }: NotificationSettingsModal
             </label>
           </div>
 
-          {feedback && (
-            <div
-              className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-1.5 ${
-                feedback.includes('sucesso') || feedback.includes('perfeitamente')
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-              }`}
-            >
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{feedback}</span>
-            </div>
-          )}
+            {feedback && (
+              <div
+                className={`p-3 rounded-xl text-xs font-semibold text-center flex items-center justify-center gap-1.5 ${
+                  feedback.includes('sucesso') || feedback.includes('perfeitamente')
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                }`}
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{feedback}</span>
+              </div>
+            )}
+          </div>
 
           {/* Botões */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="shrink-0 flex items-center justify-end gap-3 px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-800 bg-slate-900/95">
             <button
               type="button"
               onClick={onClose}
