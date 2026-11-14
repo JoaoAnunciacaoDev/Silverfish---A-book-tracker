@@ -1,12 +1,16 @@
 // Service Worker do Silverfish — PWA & Web Push
 
-const CACHE_NAME = 'silverfish-cache-v2'
+const CACHE_NAME = 'silverfish-cache-v3'
 const DEFAULT_NOTIFICATION_URL = '/?tab=library'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/favicon.svg',
+  '/apple-touch-icon.png',
+  '/pwa-192x192.png',
+  '/pwa-512x512.png',
+  '/pwa-maskable-512x512.png',
 ]
 
 self.addEventListener('install', (event) => {

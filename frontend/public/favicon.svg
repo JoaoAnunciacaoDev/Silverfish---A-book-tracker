@@ -1,37 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Fundo sutil arredondado com borda suave -->
-  <rect width="64" height="64" rx="16" fill="#0f172a"/>
-  <rect x="1" y="1" width="62" height="62" rx="15" stroke="#334155" stroke-width="2"/>
-  
-  <!-- Livro Aberto com páginas estilizadas -->
-  <g transform="translate(8, 12)">
-    <!-- Lombada / Base do Livro -->
-    <path d="M24 34C17 31 7 32 3 35V11C8 8 18 7 24 10C30 7 40 8 45 11V35C41 32 31 31 24 34Z" fill="#1e293b" stroke="#059669" stroke-width="2.5" stroke-linejoin="round"/>
-    
-    <!-- Página Esquerda -->
-    <path d="M24 10C18 7 8 8 3 11V35C7 32 17 31 24 34V10Z" fill="url(#bookGradLeft)"/>
-    
-    <!-- Linhas de Texto Sutis na Página Esquerda -->
-    <path d="M8 17H19M8 22H18M8 27H15" stroke="#64748b" stroke-width="1.8" stroke-linecap="round"/>
-
-    <!-- Página Direita -->
-    <path d="M24 10C30 7 40 8 45 11V35C41 32 31 31 24 34V10Z" fill="url(#bookGradRight)"/>
-    
-    <!-- Marcador de Página / Fita em Esmeralda Fluorescente -->
-    <path d="M22 8V24L26 21L30 24V8C27 7.5 25 7.5 22 8Z" fill="#10b981" stroke="#34d399" stroke-width="1.2" stroke-linejoin="round"/>
-    
-    <!-- Brilho no topo do marcador -->
-    <circle cx="26" cy="12" r="1.5" fill="#a7f3d0"/>
-  </g>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
   <defs>
-    <linearGradient id="bookGradLeft" x1="3" y1="23" x2="24" y2="23" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#022c22"/>
-      <stop offset="100%" stop-color="#064e3b"/>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
     </linearGradient>
-    <linearGradient id="bookGradRight" x1="24" y1="23" x2="45" y2="23" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#064e3b"/>
-      <stop offset="100%" stop-color="#065f46"/>
+    <linearGradient id="strokeGrad" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
     </linearGradient>
   </defs>
+
+  <!-- Fundo escuro arredondado (tema slate-950) -->
+  <rect width="32" height="32" rx="8" fill="url(#bgGrad)"/>
+  
+  <!-- Borda suave verde esmeralda -->
+  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="7.25" stroke="#10b981" stroke-opacity="0.28" stroke-width="1.5"/>
+
+  <!-- Placa interna esmeralda translúcida (estilo do app: bg-emerald-500/10) -->
+  <rect x="3.5" y="3.5" width="25" height="25" rx="6" fill="#10b981" fill-opacity="0.12"/>
+
+  <!-- Livrinho Lucide BookOpen perfeitamente proporcional -->
+  <g transform="translate(4, 4)" stroke="url(#strokeGrad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 5v16" />
+    <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z" />
+  </g>
 </svg>
