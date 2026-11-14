@@ -320,7 +320,7 @@ export function LogSessionModal({
                   <span>Anotações de leitura (ou citação opcional)</span>
                 </label>
                 <span className="text-[10px] text-slate-500 font-normal">
-                  Negrito, itálico, sublinhado e tamanhos
+                  Formatação, alinhamento e recuo
                 </span>
               </div>
               <RichTextEditor

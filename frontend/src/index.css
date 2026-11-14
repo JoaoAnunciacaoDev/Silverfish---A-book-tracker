@@ -76,3 +76,32 @@ html {
   min-height: 1.25em;
 }
 
+.rich-text-content blockquote {
+  margin: 0.4rem 0 0.4rem 1.25rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid rgba(16, 185, 129, 0.45);
+  color: #cbd5e1;
+}
+
+.rich-text-content blockquote blockquote {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  margin-left: 1.25rem;
+}
+
+.rich-text-content [align="center"] {
+  text-align: center;
+}
+
+.rich-text-content [align="justify"] {
+  text-align: justify;
+}
+
+.rich-text-content [align="left"] {
+  text-align: left;
+}
+
+.rich-text-content [align="right"] {
+  text-align: right;
+}
+

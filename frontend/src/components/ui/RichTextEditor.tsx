@@ -1,5 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Bold, Italic, RemoveFormatting, Type, Underline } from 'lucide-react'
+import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  IndentDecrease,
+  IndentIncrease,
+  Italic,
+  RemoveFormatting,
+  Type,
+  Underline,
+} from 'lucide-react'
 import {
   DEFAULT_FONT_SIZE,
   FONT_SIZES,
@@ -27,6 +39,8 @@ export function RichTextEditor({
   const [isBold, setIsBold] = useState(false)
   const [isItalic, setIsItalic] = useState(false)
   const [isUnderline, setIsUnderline] = useState(false)
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'justify' | 'right'>('left')
+  const [isIndented, setIsIndented] = useState(false)
   const [currentFontSize, setCurrentFontSize] = useState<string>(DEFAULT_FONT_SIZE)
   const [isEditorFocused, setIsEditorFocused] = useState(false)
 
@@ -52,7 +66,7 @@ export function RichTextEditor({
     }
   }, [])
 
-  // Atualiza os estados ativos de negrito, itálico, sublinhado e tamanho de fonte baseado no cursor
+  // Atualiza os estados ativos de negrito, itálico, sublinhado, alinhamento, recuo e tamanho de fonte baseado no cursor
   const updateActiveFormats = useCallback(() => {
     if (!editorRef.current) return
     const selection = window.getSelection()
@@ -69,19 +83,55 @@ export function RichTextEditor({
       // Ignora se não for suportado em algum contexto
     }
 
-    // Detecta tamanho da fonte ativo no nó do cursor
+    // Detecta alinhamento ativo
+    let currentAlign: 'left' | 'center' | 'justify' | 'right' = 'left'
+    try {
+      if (document.queryCommandState('justifyCenter')) currentAlign = 'center'
+      else if (document.queryCommandState('justifyFull')) currentAlign = 'justify'
+      else if (document.queryCommandState('justifyRight')) currentAlign = 'right'
+      else if (document.queryCommandState('justifyLeft')) currentAlign = 'left'
+    } catch {
+      // Ignora se queryCommandState falhar
+    }
+
+    // Detecta tamanho da fonte ativo, alinhamento e recuo nos nós pais
     let el: HTMLElement | null =
       anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as HTMLElement)
 
     let detectedSize = DEFAULT_FONT_SIZE
+    let detectedIndent = false
+
     while (el && el !== editorRef.current) {
-      if (el.style && el.style.fontSize) {
+      if (el.style && el.style.fontSize && detectedSize === DEFAULT_FONT_SIZE) {
         detectedSize = el.style.fontSize
-        break
       }
+
+      if (currentAlign === 'left') {
+        const alignAttr = el.getAttribute('align')
+        const styleAlign = el.style?.textAlign
+        const effectiveAlign = styleAlign || alignAttr
+        if (effectiveAlign) {
+          const lower = effectiveAlign.toLowerCase()
+          if (lower === 'center' || lower === 'justify' || lower === 'right' || lower === 'left') {
+            currentAlign = lower as 'left' | 'center' | 'justify' | 'right'
+          }
+        }
+      }
+
+      if (
+        el.tagName === 'BLOCKQUOTE' ||
+        Boolean(el.style?.marginLeft && el.style.marginLeft !== '0px') ||
+        Boolean(el.style?.paddingLeft && el.style.paddingLeft !== '0px')
+      ) {
+        detectedIndent = true
+      }
+
       el = el.parentElement
     }
+
     setCurrentFontSize(detectedSize)
+    setTextAlign(currentAlign)
+    setIsIndented(detectedIndent)
   }, [])
 
   // Dispara a sincronização de conteúdo com o estado do React
@@ -150,6 +200,48 @@ export function RichTextEditor({
     handleInput()
   }
 
+  // Aplica alinhamento de texto (esquerda, centro, justificado, direita)
+  const handleAlignment = (align: 'left' | 'center' | 'justify' | 'right') => {
+    if (!editorRef.current) return
+    editorRef.current.focus()
+    restoreSelection()
+
+    try {
+      document.execCommand('styleWithCSS', false, 'true')
+    } catch {
+      // Fallback para navegadores legados
+    }
+
+    const commandMap: Record<string, string> = {
+      left: 'justifyLeft',
+      center: 'justifyCenter',
+      justify: 'justifyFull',
+      right: 'justifyRight',
+    }
+
+    document.execCommand(commandMap[align], false)
+    setTextAlign(align)
+    handleInput()
+    updateActiveFormats()
+  }
+
+  // Aplica recuo / indentação à esquerda
+  const handleIndent = (action: 'indent' | 'outdent') => {
+    if (!editorRef.current) return
+    editorRef.current.focus()
+    restoreSelection()
+
+    try {
+      document.execCommand('styleWithCSS', false, 'false')
+    } catch {
+      // Fallback
+    }
+
+    document.execCommand(action, false)
+    handleInput()
+    updateActiveFormats()
+  }
+
   // Executa comandos de formatação básica
   const executeCommand = (command: string, arg: string | undefined = undefined) => {
     if (!editorRef.current) return
@@ -178,6 +270,8 @@ export function RichTextEditor({
       if (isNewEmpty && !isCurrentlyEmpty) {
         editorRef.current.innerHTML = ''
         setCurrentFontSize(DEFAULT_FONT_SIZE)
+        setTextAlign('left')
+        setIsIndented(false)
       } else if (!isNewEmpty && value !== currentHtml) {
         if (document.activeElement !== editorRef.current) {
           editorRef.current.innerHTML = value
@@ -201,7 +295,7 @@ export function RichTextEditor({
         onMouseDown={saveSelection}
       >
         {/* Seletor de Tamanho de Fonte */}
-        <div className="flex items-center gap-1.5 pr-1 mr-1 border-r border-slate-800">
+        <div className="flex items-center gap-1.5 pr-1 mr-0.5 border-r border-slate-800">
           <Type className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <select
             value={currentFontSize}
@@ -218,59 +312,163 @@ export function RichTextEditor({
           </select>
         </div>
 
-        {/* Negrito */}
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            saveSelection()
-          }}
-          onClick={() => executeCommand('bold')}
-          className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
-            isBold
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
-              : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-          title="Negrito (Ctrl+B)"
-        >
-          <Bold className="w-3.5 h-3.5" />
-        </button>
+        {/* Formatação Inline (Negrito, Itálico, Sublinhado) */}
+        <div className="flex items-center gap-1 pr-1 mr-0.5 border-r border-slate-800">
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => executeCommand('bold')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              isBold
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Negrito (Ctrl+B)"
+          >
+            <Bold className="w-3.5 h-3.5" />
+          </button>
 
-        {/* Itálico */}
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            saveSelection()
-          }}
-          onClick={() => executeCommand('italic')}
-          className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
-            isItalic
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
-              : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-          title="Itálico (Ctrl+I)"
-        >
-          <Italic className="w-3.5 h-3.5" />
-        </button>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => executeCommand('italic')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              isItalic
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Itálico (Ctrl+I)"
+          >
+            <Italic className="w-3.5 h-3.5" />
+          </button>
 
-        {/* Sublinhado */}
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            saveSelection()
-          }}
-          onClick={() => executeCommand('underline')}
-          className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
-            isUnderline
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
-              : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-          title="Sublinhado (Ctrl+U)"
-        >
-          <Underline className="w-3.5 h-3.5" />
-        </button>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => executeCommand('underline')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              isUnderline
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Sublinhado (Ctrl+U)"
+          >
+            <Underline className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Alinhamento de Texto (Esquerda, Centro, Justificado, Direita) */}
+        <div className="flex items-center gap-1 pr-1 mr-0.5 border-r border-slate-800">
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => handleAlignment('left')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              textAlign === 'left'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Alinhar à esquerda"
+          >
+            <AlignLeft className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => handleAlignment('center')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              textAlign === 'center'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Centralizar"
+          >
+            <AlignCenter className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => handleAlignment('justify')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              textAlign === 'justify'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Justificar"
+          >
+            <AlignJustify className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => handleAlignment('right')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              textAlign === 'right'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Alinhar à direita"
+          >
+            <AlignRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Recuo / Indentação à Esquerda */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => handleIndent('indent')}
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+              isIndented
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-xs'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Recuo à esquerda / Aumentar recuo (Tab)"
+          >
+            <IndentIncrease className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              saveSelection()
+            }}
+            onClick={() => handleIndent('outdent')}
+            className="p-1.5 rounded-lg border border-slate-800 bg-slate-950/80 text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            title="Diminuir recuo (Shift+Tab)"
+          >
+            <IndentDecrease className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
         {/* Limpar formatação */}
         <button
@@ -292,7 +490,9 @@ export function RichTextEditor({
         {isEmpty && (
           <div
             onClick={() => editorRef.current?.focus()}
-            className="absolute top-2.5 left-3 text-xs text-slate-500 pointer-events-none select-none leading-relaxed"
+            className={`absolute top-2.5 inset-x-3 text-xs text-slate-500 pointer-events-none select-none leading-relaxed ${
+              textAlign === 'center' ? 'text-center' : textAlign === 'right' ? 'text-right' : 'text-left'
+            } ${isIndented ? 'pl-6' : ''}`}
           >
             {placeholder}
           </div>
@@ -312,6 +512,16 @@ export function RichTextEditor({
           }}
           onInput={handleInput}
           onPaste={handlePaste}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault()
+              if (e.shiftKey) {
+                handleIndent('outdent')
+              } else {
+                handleIndent('indent')
+              }
+            }
+          }}
           onMouseUp={() => {
             saveSelection()
             updateActiveFormats()

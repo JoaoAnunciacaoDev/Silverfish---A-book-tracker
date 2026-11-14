@@ -64,6 +64,8 @@ export function sanitizeRichText(html: string | null | undefined): string {
     'DIV',
     'BR',
     'FONT',
+    'BLOCKQUOTE',
+    'CENTER',
   ])
 
   function cleanNode(node: Node) {
@@ -95,12 +97,37 @@ export function sanitizeRichText(html: string | null | undefined): string {
       if (tagName === 'FONT' && name === 'size') {
         continue
       }
+      if (name === 'align') {
+        const val = attr.value.toLowerCase()
+        if (['left', 'center', 'right', 'justify'].includes(val)) {
+          el.setAttribute('align', val)
+        } else {
+          el.removeAttribute('align')
+        }
+        continue
+      }
       if (name === 'style') {
         const rawFontSize = el.style.fontSize
+        const rawTextAlign = el.style.textAlign
+        const rawMarginLeft = el.style.marginLeft
+        const rawPaddingLeft = el.style.paddingLeft
+
         el.removeAttribute('style')
         if (rawFontSize) {
           // Permite apenas font-size
           el.style.fontSize = rawFontSize
+        }
+        if (
+          rawTextAlign &&
+          ['left', 'center', 'right', 'justify'].includes(rawTextAlign.toLowerCase())
+        ) {
+          el.style.textAlign = rawTextAlign.toLowerCase()
+        }
+        if (rawMarginLeft && /^[\d.]+(px|em|rem|%)?$/.test(rawMarginLeft.trim())) {
+          el.style.marginLeft = rawMarginLeft.trim()
+        }
+        if (rawPaddingLeft && /^[\d.]+(px|em|rem|%)?$/.test(rawPaddingLeft.trim())) {
+          el.style.paddingLeft = rawPaddingLeft.trim()
         }
         continue
       }
