@@ -3,6 +3,7 @@ import { deleteReadingSession, listReadingSessions } from '@/api/reading'
 import type { ReadingSession } from '@/types/reading'
 import { formatSessionDate } from '@/utils/date'
 import { LogSessionModal } from './LogSessionModal'
+import { RichTextViewer } from '@/components/ui/RichTextViewer'
 import { Calendar, Clock, Loader2, NotebookPen, Pencil, Trash2, X } from 'lucide-react'
 
 interface ReadingHistoryModalProps {
@@ -129,9 +130,7 @@ export function ReadingHistoryModal({
                         <NotebookPen className="w-3 h-3" />
                         Anotações de leitura
                       </span>
-                      <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-                        {session.notes}
-                      </p>
+                      <RichTextViewer content={session.notes} className="text-xs text-slate-300" />
                     </div>
                   )}
                 </div>

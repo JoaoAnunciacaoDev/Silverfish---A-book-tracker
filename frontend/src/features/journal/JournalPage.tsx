@@ -6,6 +6,8 @@ import type { ReadingSession } from '@/types/reading'
 import type { UserBook } from '@/types/library'
 import { LogSessionModal } from '@/features/reading/LogSessionModal'
 import { formatSessionDate } from '@/utils/date'
+import { RichTextViewer } from '@/components/ui/RichTextViewer'
+import { stripHtml } from '@/components/ui/richText'
 
 const EMPTY_SESSIONS: ReadingSession[] = []
 const EMPTY_LIBRARY_BOOKS: UserBook[] = []
@@ -367,12 +369,9 @@ export function JournalPage() {
 
                   {/* Anotações de leitura */}
                   {session.notes && (() => {
-                    const isLongNotes = session.notes.length > NOTES_PREVIEW_LIMIT
+                    const plainText = stripHtml(session.notes)
+                    const isLongNotes = plainText.length > NOTES_PREVIEW_LIMIT
                     const isNotesExpanded = Boolean(expandedNotesIds[session.id])
-                    const displayedNotes =
-                      isLongNotes && !isNotesExpanded
-                        ? `${session.notes.slice(0, NOTES_PREVIEW_LIMIT).trimEnd()}...`
-                        : session.notes
 
                     return (
                       <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5 space-y-1.5">
@@ -380,14 +379,17 @@ export function JournalPage() {
                           <NotebookPen className="w-3.5 h-3.5 shrink-0" />
                           <span>Anotações de leitura</span>
                         </div>
-                        <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
-                          {displayedNotes}
-                        </p>
+                        <div className={!isNotesExpanded && isLongNotes ? 'max-h-24 overflow-hidden relative' : ''}>
+                          <RichTextViewer content={session.notes} className="text-xs" />
+                          {!isNotesExpanded && isLongNotes && (
+                            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-950/95 to-transparent pointer-events-none" />
+                          )}
+                        </div>
                         {isLongNotes && (
                           <button
                             type="button"
                             onClick={() => toggleNotesExpanded(session.id)}
-                            className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                            className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer pt-0.5"
                           >
                             {isNotesExpanded ? 'Mostrar menos' : 'Ler mais'}
                           </button>

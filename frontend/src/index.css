@@ -34,3 +34,45 @@ html {
 *::-webkit-scrollbar-thumb:hover {
   background-color: #10b981;
 }
+
+/* Estilos de Tipografia para Notas de Leitura Ricas */
+.rich-text-content b,
+.rich-text-content strong {
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.rich-text-content i,
+.rich-text-content em {
+  font-style: italic;
+}
+
+.rich-text-content u {
+  text-decoration: underline;
+  text-underline-offset: 2.5px;
+}
+
+.rich-text-content font[size="1"],
+.rich-text-content font[size="2"] {
+  font-size: 12px;
+}
+
+.rich-text-content font[size="3"] {
+  font-size: 14px;
+}
+
+.rich-text-content font[size="4"] {
+  font-size: 18px;
+}
+
+.rich-text-content font[size="5"],
+.rich-text-content font[size="6"],
+.rich-text-content font[size="7"] {
+  font-size: 22px;
+}
+
+.rich-text-content p,
+.rich-text-content div {
+  min-height: 1.25em;
+}
+

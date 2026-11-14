@@ -5,6 +5,8 @@ import type { ReadingSession } from '@/types/reading'
 import { extractDateOnly, getLocalTodayDateString } from '@/utils/date'
 import { BookOpen, Calendar, CheckCircle, Loader2, NotebookPen, Star, X } from 'lucide-react'
 import { triggerConfetti } from '@/components/ui/confetti'
+import { RichTextEditor } from '@/components/ui/RichTextEditor'
+import { isContentEmpty } from '@/components/ui/richText'
 
 interface LogSessionModalProps {
   item?: UserBook | null
@@ -118,13 +120,14 @@ export function LogSessionModal({
       if (editingSession) {
         const wasCompletedBefore =
           bookPageCount > 0 && activeBook.status === 'read' && editingSession.end_page >= bookPageCount
+        const cleanNotes = isContentEmpty(notes) ? '' : notes.trim()
         const res = await updateReadingSession(editingSession.id, {
           start_page: startPage,
           end_page: endPage,
           read_at: readAt || undefined,
           comprehension,
           feeling: feeling || '',
-          notes: notes.trim(),
+          notes: cleanNotes,
         })
         if (willCompleteBook && !wasCompletedBefore) {
           triggerConfetti()
@@ -132,6 +135,7 @@ export function LogSessionModal({
         onSuccess(res.session)
         onClose()
       } else {
+        const cleanNotes = isContentEmpty(notes) ? undefined : notes.trim()
         const res = await createReadingSession({
           user_book_id: activeBook.id,
           start_page: startPage,
@@ -139,7 +143,7 @@ export function LogSessionModal({
           read_at: readAt || undefined,
           comprehension,
           feeling: feeling || undefined,
-          notes: notes.trim() || undefined,
+          notes: cleanNotes,
         })
         if (willCompleteBook) {
           triggerConfetti()
@@ -308,18 +312,22 @@ export function LogSessionModal({
               </div>
             </div>
 
-            {/* Anotações */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-                <NotebookPen className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Anotações de leitura (ou citação opcional)</span>
-              </label>
-              <textarea
-                rows={3}
+            {/* Anotações com Editor de Texto Rico */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                  <NotebookPen className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Anotações de leitura (ou citação opcional)</span>
+                </label>
+                <span className="text-[10px] text-slate-500 font-normal">
+                  Negrito, itálico, sublinhado e tamanhos
+                </span>
+              </div>
+              <RichTextEditor
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={setNotes}
                 placeholder="Registre suas anotações, aprendizados, reflexões ou uma citação marcante..."
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-hidden transition resize-none"
+                minHeight="90px"
               />
             </div>
           </div>
